@@ -1,0 +1,52 @@
+# Scoring weights configuration for Phisherman analyzers
+# This file allows A/B testing of different weight combinations
+
+scorers:
+  linear:
+    # Analyzer weights (0.0 - 1.0 scale)
+    weights:
+      blacklist_feeds: 0.9    # Highest weight - known bad indicators
+      dns_resolver: 0.8       # High weight - DNS reputation signals
+      rdap_whois: 0.7        # Good weight - domain registration data
+      url_heuristics: 0.6    # Moderate weight - pattern analysis
+      tls_probe: 0.4         # Lower weight - placeholder analyzer
+
+    # Risk level thresholds
+    thresholds:
+      low: 25.0      # 0-25 = very low risk
+      medium: 50.0   # 25-50 = low risk, 50-75 = medium risk
+      high: 75.0     # 75+ = high risk
+
+    # Consensus adjustments
+    consensus:
+      high_risk_bonus: 15.0        # Bonus when 70%+ analyzers agree on high risk
+      low_risk_penalty: 10.0       # Penalty when 70%+ analyzers agree on low risk
+      disagreement_penalty: 5.0    # Penalty when analyzers strongly disagree
+
+# A/B Testing configurations (future use)
+experiments:
+  conservative:
+    # More conservative scoring - higher thresholds
+    weights:
+      blacklist_feeds: 0.95
+      dns_resolver: 0.75
+      rdap_whois: 0.6
+      url_heuristics: 0.4
+      tls_probe: 0.3
+    thresholds:
+      low: 35.0
+      medium: 60.0
+      high: 80.0
+
+  aggressive:
+    # More aggressive scoring - lower thresholds
+    weights:
+      blacklist_feeds: 0.9
+      dns_resolver: 0.85
+      rdap_whois: 0.8
+      url_heuristics: 0.7
+      tls_probe: 0.5
+    thresholds:
+      low: 20.0
+      medium: 40.0
+      high: 70.0

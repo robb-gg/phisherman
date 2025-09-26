@@ -1,0 +1,9 @@
+{
+    "database_path": "feeds_data.db",
+    "user_agent": "phishtank/RDN1",
+    "http_timeout": 120,
+
+    "phishtank_interval": 15,
+    "openphish_interval": 15,
+    "urlhaus_interval": 30
+}

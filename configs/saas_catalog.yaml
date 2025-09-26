@@ -1,0 +1,288 @@
+# SaaS provider catalog for detecting legitimate hosted services
+# Used by DNS analyzer to reduce false positives for legitimate services
+# Updated with PhishTank abuse statistics (as of latest data)
+
+providers:
+  cloudflare:
+    name: "Cloudflare Pages"
+    patterns:
+      cnames:
+        - "pages.dev"
+        - "cloudflare.net"
+        - "cloudflare.com"
+      asn: [13335]
+    # PhishTank data: pages.dev has 374 abuse cases
+    risk_adjustment: -2  # Reduced from -5 due to moderate abuse
+    abuse_frequency: 374
+    confidence: 0.8  # High confidence but moderate abuse
+
+  vercel:
+    name: "Vercel"
+    patterns:
+      cnames:
+        - "vercel-dns.com"
+        - "vercel.app"
+        - "now.sh"
+        - "cname.vercel-dns.com"
+      asn: [13335]  # Often uses Cloudflare
+    # PhishTank data: vercel.app has 153 abuse cases
+    risk_adjustment: -3  # Reduced from -5 due to abuse cases
+    abuse_frequency: 153
+    confidence: 0.8
+
+  netlify:
+    name: "Netlify"
+    patterns:
+      cnames:
+        - "netlify.app"
+        - "netlify.com"
+        - "netlifyglobalcdn.com"
+      asn: [36459]
+    # PhishTank data: netlify.app has 74 abuse cases
+    risk_adjustment: -4  # Slight reduction due to some abuse
+    abuse_frequency: 74
+    confidence: 0.9
+
+  github:
+    name: "GitHub Pages"
+    patterns:
+      cnames:
+        - "github.io"
+        - "github.com"
+        - "githubapp.com"
+      asn: [36459]
+    # PhishTank data: github.io has 208 abuse cases
+    risk_adjustment: -3  # Reduced from -5 due to notable abuse
+    abuse_frequency: 208
+    confidence: 0.8
+
+  shopify:
+    name: "Shopify"
+    patterns:
+      cnames:
+        - "myshopify.com"
+        - "shopifycs.com"
+        - "shopify.com"
+      asn: [394362]
+    risk_adjustment: -3  # E-commerce sites can be targets
+
+  heroku:
+    name: "Heroku"
+    patterns:
+      cnames:
+        - "herokuapp.com"
+        - "herokussl.com"
+        - "herokudns.com"
+      asn: [54113]
+    risk_adjustment: 0  # Neutral - often used by startups
+
+  aws:
+    name: "Amazon Web Services"
+    patterns:
+      cnames:
+        - "amazonaws.com"
+        - "cloudfront.net"
+        - "elb.amazonaws.com"
+        - "awsglobalaccel.com"
+      asn: [16509, 14618]
+    risk_adjustment: 0  # Neutral - too broad
+
+  google:
+    name: "Google Cloud / Firebase"
+    patterns:
+      cnames:
+        - "googlehosted.com"
+        - "ghs.google.com"
+        - "firebase.com"
+        - "firebaseapp.com"
+        - "appspot.com"
+        - "web.app"  # Added from PhishTank data
+      asn: [15169]
+    # PhishTank data: firebaseapp.com has 2,134 cases, web.app has 2,192 cases
+    risk_adjustment: 0  # Neutral due to very high abuse (4,326+ cases total)
+    abuse_frequency: 4326  # firebaseapp.com + web.app combined
+    confidence: 0.6  # Lower confidence due to high abuse
+
+  microsoft:
+    name: "Microsoft Azure"
+    patterns:
+      cnames:
+        - "azurefd.net"
+        - "trafficmanager.net"
+        - "azurewebsites.net"
+        - "azure.com"
+      asn: [8075]
+    risk_adjustment: -3
+
+  # CDN Providers
+  fastly:
+    name: "Fastly CDN"
+    patterns:
+      cnames:
+        - "fastly.com"
+        - "fastlylb.net"
+      asn: [54113]
+    risk_adjustment: -2
+
+  maxcdn:
+    name: "MaxCDN/StackPath"
+    patterns:
+      cnames:
+        - "maxcdn.com"
+        - "stackpathdns.com"
+      asn: [20940]
+    risk_adjustment: -2
+
+  # New providers identified from PhishTank abuse data
+  weebly:
+    name: "Weebly"
+    patterns:
+      cnames:
+        - "weebly.com"
+        - "weeblysite.com"
+      asn: [13335]  # Uses Cloudflare
+    # PhishTank data: weebly.com has 3,432 cases, weeblysite.com has 978 cases
+    risk_adjustment: 2  # Positive adjustment due to very high abuse
+    abuse_frequency: 4410  # Combined abuse cases
+    confidence: 0.4  # Low confidence due to extremely high abuse
+
+  wix:
+    name: "Wix"
+    patterns:
+      cnames:
+        - "wixsite.com"
+      asn: [13335]  # Uses Cloudflare
+    # PhishTank data: wixsite.com has 796 abuse cases
+    risk_adjustment: 0  # Neutral due to significant abuse
+    abuse_frequency: 796
+    confidence: 0.6
+
+  webflow:
+    name: "Webflow"
+    patterns:
+      cnames:
+        - "webflow.io"
+      asn: [13335]  # Uses Cloudflare
+    # PhishTank data: webflow.io has 787 abuse cases
+    risk_adjustment: 0  # Neutral due to significant abuse
+    abuse_frequency: 787
+    confidence: 0.6
+
+  square:
+    name: "Square Sites"
+    patterns:
+      cnames:
+        - "square.site"
+      asn: [13335]  # Uses Cloudflare
+    # PhishTank data: square.site has 200 abuse cases
+    risk_adjustment: -2  # Slight negative due to moderate abuse
+    abuse_frequency: 200
+    confidence: 0.7
+
+  adobe:
+    name: "Adobe Portfolio"
+    patterns:
+      cnames:
+        - "myportfolio.com"
+      asn: [13335]  # Uses Cloudflare
+    # PhishTank data: myportfolio.com has 156 abuse cases
+    risk_adjustment: -3  # Slight negative, legitimate Adobe service
+    abuse_frequency: 156
+    confidence: 0.8
+
+# High-risk services frequently abused (from PhishTank data)
+high_risk_services:
+  url_shorteners:
+    qrco:
+      name: "QR Code Generator"
+      patterns: ["qrco.de"]
+      abuse_frequency: 2548
+      risk_adjustment: 15
+      confidence: 0.9
+
+    bitly:
+      name: "Bit.ly URL Shortener"
+      patterns: ["bit.ly"]
+      abuse_frequency: 2447
+      risk_adjustment: 12
+      confidence: 0.8
+
+    tco:
+      name: "Twitter Short URLs"
+      patterns: ["t.co"]
+      abuse_frequency: 413
+      risk_adjustment: 8
+      confidence: 0.7
+
+    tinyurl:
+      name: "TinyURL"
+      patterns: ["tinyurl.com"]
+      abuse_frequency: 176
+      risk_adjustment: 8
+      confidence: 0.7
+
+  suspicious_patterns:
+    # Patterns from PhishTank data indicating high-risk domains
+    r2_dev:
+      name: "R2.dev domains"
+      patterns: ["r2.dev"]
+      abuse_frequency: 1979
+      risk_adjustment: 20
+      confidence: 0.9
+
+    ead_me:
+      name: "Ead.me domains"
+      patterns: ["ead.me"]
+      abuse_frequency: 1975
+      risk_adjustment: 20
+      confidence: 0.9
+
+    dweb_link:
+      name: "IPFS Gateway"
+      patterns: ["dweb.link"]
+      abuse_frequency: 803
+      risk_adjustment: 12
+      confidence: 0.8
+
+# Detection rules
+detection:
+  # How to match providers
+  methods:
+    - cname_pattern  # Check if CNAME target matches patterns
+    - asn_match      # Check if IP resolves to known ASN
+    - cert_issuer    # Check TLS certificate issuer (future)
+    - abuse_frequency_lookup  # New: Check against PhishTank abuse data
+
+  # Priority order when multiple matches
+  priority:
+    - high_risk_exact_match   # Highest priority for known bad patterns
+    - exact_cname_match
+    - partial_cname_match
+    - asn_match
+    - abuse_frequency_match
+
+  # Confidence levels
+  confidence:
+    high_risk_exact_match: 0.95
+    exact_cname_match: 0.9
+    partial_cname_match: 0.7
+    asn_match: 0.5
+    abuse_frequency_match: 0.8
+
+  # Abuse frequency thresholds for risk adjustment
+  abuse_thresholds:
+    very_high: 2000      # 2000+ cases = +20 risk
+    high: 500           # 500-1999 cases = +10 risk
+    medium: 100         # 100-499 cases = +5 risk
+    low: 50            # 50-99 cases = +2 risk
+
+# PhishTank data statistics
+phishtank_stats:
+  last_updated: "2024-latest"
+  total_domains_analyzed: 6980
+  most_abused_service: "google.com (7301 cases)"
+  analysis_notes: |
+    - Google services (firebaseapp.com, web.app) show highest abuse
+    - URL shorteners are heavily abused
+    - Many legitimate SaaS platforms are being exploited
+    - Risk adjustments calibrated based on abuse frequency

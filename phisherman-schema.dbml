@@ -1,0 +1,431 @@
+// Phisherman Database Schema
+// Generated for https://dbdiagram.io/d
+// Database: PostgreSQL 16.10
+
+Project Phisherman {
+  database_type: 'PostgreSQL'
+  Note: '''
+    # Phisherman - Sistema de Análisis de Phishing
+
+    Sistema completo para detección y análisis de URLs de phishing con:
+    - Análisis multi-engine de URLs
+    - Threat intelligence de múltiples feeds
+    - Clasificación automática de empresas víctimas
+    - Tracking de campañas de phishing
+    - Cache inteligente de resultados
+  '''
+}
+
+// =============================================================================
+// TABLA PRINCIPAL - ANÁLISIS DE URLS
+// =============================================================================
+
+Table url_scans {
+  id uuid [primary key, default: `gen_random_uuid()`]
+
+  // URL details
+  url varchar(2083) [not null, note: 'URL original analizada']
+  normalized_url varchar(2083) [not null, note: 'URL normalizada para comparaciones']
+  domain varchar(253) [not null, note: 'Dominio extraído']
+
+  // Analysis results
+  is_malicious boolean [not null, note: 'Resultado final: malicioso o no']
+  risk_score double [not null, note: 'Puntuación de riesgo 0.0-1.0']
+  confidence double [not null, note: 'Confianza en el resultado 0.0-1.0']
+  labels json [not null, default: '[]', note: 'Etiquetas de clasificación']
+  evidence json [not null, default: '{}', note: 'Evidencias encontradas']
+
+  // Analyzer results
+  analyzer_results json [not null, default: '{}', note: 'Resultados detallados de cada analyzer']
+
+  // Metadata
+  scan_duration_ms double [not null, note: 'Tiempo de análisis en ms']
+  client_ip varchar(45) [note: 'IP del cliente que solicitó el análisis']
+  user_agent text [note: 'User-Agent del cliente']
+
+  // Timestamps
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    url [name: 'idx_url_scans_url']
+    normalized_url [name: 'idx_url_scans_normalized_url']
+    domain [name: 'idx_url_scans_domain']
+    is_malicious [name: 'idx_url_scans_is_malicious']
+    client_ip [name: 'idx_url_scans_client_ip']
+    created_at [name: 'idx_url_scans_created_at']
+  }
+
+  Note: 'Tabla principal - almacena todos los análisis de URLs realizados'
+}
+
+// =============================================================================
+// THREAT INTELLIGENCE - INDICADORES DE AMENAZAS
+// =============================================================================
+
+Table indicators {
+  id uuid [primary key, default: `gen_random_uuid()`]
+
+  // Indicator details
+  indicator_type varchar(50) [not null, note: 'Tipo: url, domain, ip, hash']
+  indicator_value varchar(2083) [not null, note: 'Valor del indicador']
+
+  // Threat classification
+  threat_type varchar(100) [not null, note: 'Tipo de amenaza: phishing, malware, spam']
+  severity varchar(20) [not null, note: 'Severidad: low, medium, high, critical']
+  confidence double [not null, note: 'Confianza del feed 0.0-1.0']
+
+  // Source information
+  source varchar(100) [not null, note: 'Fuente: phishtank, openphish, urlhaus, safebrowsing']
+  source_url varchar(2083) [note: 'URL del feed origen']
+  tags json [not null, default: '[]', note: 'Tags adicionales']
+  metadata json [not null, default: '{}', note: 'Metadatos específicos del feed']
+
+  // Validity
+  first_seen timestamptz [not null, note: 'Primera vez visto']
+  last_seen timestamptz [not null, note: 'Última vez visto']
+  expires_at timestamptz [note: 'Cuándo expira este indicador']
+  is_active boolean [not null, default: true, note: 'Si el indicador está activo']
+
+  // Timestamps
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    indicator_type [name: 'idx_indicators_type']
+    indicator_value [name: 'idx_indicators_value']
+    threat_type [name: 'idx_indicators_threat_type']
+    severity [name: 'idx_indicators_severity']
+    source [name: 'idx_indicators_source']
+    first_seen [name: 'idx_indicators_first_seen']
+    last_seen [name: 'idx_indicators_last_seen']
+    expires_at [name: 'idx_indicators_expires_at']
+    is_active [name: 'idx_indicators_is_active']
+  }
+
+  Note: 'Indicadores de amenazas de feeds externos - sin relaciones FK para performance'
+}
+
+// =============================================================================
+// RAW FEED DATA
+// =============================================================================
+
+Table feed_entries {
+  id uuid [primary key, default: `gen_random_uuid()`]
+
+  // Feed information
+  feed_name varchar(100) [not null, note: 'Nombre del feed']
+  feed_url varchar(2083) [not null, note: 'URL del feed']
+
+  // Entry data
+  raw_data json [not null, note: 'Datos crudos del feed']
+  parsed_data json [not null, default: '{}', note: 'Datos procesados']
+
+  // Processing status
+  processed boolean [not null, default: false, note: 'Si ya fue procesado']
+  processing_error text [note: 'Error de procesamiento si existe']
+
+  // Deduplication
+  external_id varchar(255) [note: 'ID externo del feed']
+  checksum varchar(64) [not null, note: 'Checksum para deduplicación']
+
+  // Timestamps
+  feed_timestamp timestamptz [note: 'Timestamp del feed']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    feed_name [name: 'idx_feed_entries_feed_name']
+    external_id [name: 'idx_feed_entries_external_id']
+    checksum [name: 'idx_feed_entries_checksum']
+    processed [name: 'idx_feed_entries_processed']
+    created_at [name: 'idx_feed_entries_created_at']
+  }
+
+  Note: 'Almacén de datos crudos de feeds antes de procesamiento'
+}
+
+// =============================================================================
+// EMPRESAS VÍCTIMAS - CATALOGACIÓN
+// =============================================================================
+
+Table victim_companies {
+  id uuid [primary key, default: `gen_random_uuid()`]
+
+  // Company identification
+  name varchar(255) [not null, note: 'Nombre oficial de la empresa']
+  normalized_name varchar(255) [not null, note: 'Nombre normalizado para búsquedas']
+  brand_names text[] [not null, default: '{}', note: 'Nombres de marca alternativos']
+
+  // Company details
+  industry varchar(50) [not null, note: 'Industria: banking, ecommerce, social_media, etc.']
+  country varchar(2) [note: 'Código de país ISO']
+  market_cap varchar(20) [note: 'Tamaño: large, medium, small']
+
+  // Legitimate domains
+  official_domains text[] [not null, default: '{}', note: 'Dominios oficiales legítimos']
+  official_tlds text[] [not null, default: '{}', note: 'TLDs oficiales']
+
+  // Brand information
+  logo_url varchar(500) [note: 'URL del logo oficial']
+  brand_colors text[] [not null, default: '{}', note: 'Colores corporativos']
+
+  // Statistics
+  total_phishing_urls int [not null, default: 0, note: 'Total URLs de phishing detectadas']
+  active_campaigns int [not null, default: 0, note: 'Campañas activas']
+  risk_score double [not null, default: 0.0, note: 'Qué tan objetivo son']
+
+  // Detection patterns
+  brand_keywords text[] [not null, default: '{}', note: 'Keywords para detección automática']
+  common_misspellings text[] [not null, default: '{}', note: 'Errores ortográficos comunes']
+
+  // Business intelligence
+  is_premium boolean [not null, default: false, note: 'Cliente premium B2B']
+  data_sharing_allowed boolean [not null, default: true, note: 'Permitir compartir datos']
+
+  // Metadata
+  description text [note: 'Descripción adicional']
+  source varchar(100) [not null, default: 'manual', note: 'Cómo se agregó']
+  confidence double [not null, default: 1.0, note: 'Confianza en la clasificación']
+
+  // Timestamps
+  first_seen timestamptz [not null, default: `now()`]
+  last_updated timestamptz [not null, default: `now()`]
+
+  indexes {
+    name [name: 'idx_victim_companies_name']
+    normalized_name [name: 'idx_victim_companies_normalized_name']
+    industry [name: 'idx_victim_companies_industry']
+    country [name: 'idx_victim_companies_country']
+  }
+
+  Note: 'Catálogo de empresas objetivo de ataques de phishing'
+}
+
+// =============================================================================
+// CAMPAÑAS DE PHISHING ORGANIZADAS
+// =============================================================================
+
+Table phishing_campaigns {
+  id uuid [primary key, default: `gen_random_uuid()`]
+
+  // Campaign identification
+  name varchar(255) [not null, note: 'Nombre de la campaña']
+  campaign_hash varchar(64) [not null, unique, note: 'Hash único de la campaña']
+
+  // Target
+  victim_company_id uuid [not null, ref: > victim_companies.id, note: 'Empresa objetivo']
+
+  // Campaign details
+  status varchar(20) [not null, default: 'active', note: 'active, monitoring, declining, inactive, unknown']
+  attack_vector varchar(100) [not null, note: 'Vector: email, social, sms, etc.']
+  complexity_level varchar(20) [not null, default: 'medium', note: 'low, medium, high']
+
+  // Characteristics
+  common_themes text[] [not null, default: '{}', note: 'Temas comunes usados']
+  target_regions text[] [not null, default: '{}', note: 'Regiones objetivo']
+  languages text[] [not null, default: '{}', note: 'Idiomas utilizados']
+
+  // Statistics
+  total_urls int [not null, default: 0, note: 'Total URLs en la campaña']
+  active_urls int [not null, default: 0, note: 'URLs actualmente activas']
+  domains_count int [not null, default: 0, note: 'Número de dominios únicos']
+  avg_lifespan_hours double [note: 'Vida promedio de URLs en horas']
+
+  // Threat intelligence
+  infrastructure_fingerprint json [not null, default: '{}', note: 'Huella de infraestructura']
+  ttps json [not null, default: '{}', note: 'Tactics, Techniques, Procedures']
+
+  // Timeline
+  first_observed timestamptz [not null, note: 'Primera observación']
+  last_observed timestamptz [not null, note: 'Última observación']
+  predicted_end timestamptz [note: 'Fin predicho de la campaña']
+
+  // Analysis
+  analyst_notes text [note: 'Notas del analista']
+  severity varchar(20) [not null, default: 'medium', note: 'Severidad de la campaña']
+
+  // Timestamps
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    campaign_hash [unique, name: 'idx_phishing_campaigns_campaign_hash']
+    victim_company_id [name: 'idx_phishing_campaigns_victim_company_id']
+    status [name: 'idx_phishing_campaigns_status']
+    first_observed [name: 'idx_phishing_campaigns_first_observed']
+  }
+
+  Note: 'Campañas organizadas de phishing contra empresas específicas'
+}
+
+// =============================================================================
+// JUNCTION TABLE - URLS ↔ EMPRESAS VÍCTIMAS
+// =============================================================================
+
+Table victim_urls {
+  id uuid [primary key, default: `gen_random_uuid()`]
+
+  // References
+  url_scan_id uuid [not null, ref: > url_scans.id, note: 'Referencia al análisis de URL']
+  victim_company_id uuid [not null, ref: > victim_companies.id, note: 'Empresa siendo impersonada']
+  campaign_id uuid [ref: > phishing_campaigns.id, note: 'Campaña asociada (opcional)']
+
+  // Classification details
+  impersonation_type varchar(100) [not null, note: 'Tipo: domain_typo, subdomain_abuse, etc.']
+  similarity_score double [not null, note: 'Similitud con sitio legítimo 0.0-1.0']
+  deception_techniques text[] [not null, default: '{}', note: 'Técnicas de engaño usadas']
+
+  // Automated classification
+  auto_classified boolean [not null, default: false, note: 'Clasificado automáticamente']
+  classification_confidence double [not null, default: 0.0, note: 'Confianza en clasificación automática']
+  classification_method varchar(100) [not null, note: 'Método usado para clasificar']
+
+  // Manual review
+  human_verified boolean [not null, default: false, note: 'Verificado por humano']
+  verification_notes text [note: 'Notas de verificación']
+  verified_by varchar(100) [note: 'Quién lo verificó']
+
+  // Business intelligence
+  high_value_target boolean [not null, default: false, note: 'Target de alto valor para B2B']
+  educational_value boolean [not null, default: true, note: 'Valor educativo para B2C']
+
+  // Timestamps
+  discovered_at timestamptz [not null, default: `now()`]
+  verified_at timestamptz [note: 'Cuándo fue verificado manualmente']
+
+  indexes {
+    url_scan_id [name: 'idx_victim_urls_url_scan_id']
+    victim_company_id [name: 'idx_victim_urls_victim_company_id']
+    campaign_id [name: 'idx_victim_urls_campaign_id']
+  }
+
+  Note: 'Conecta URLs analizadas con empresas víctimas y campañas'
+}
+
+// =============================================================================
+// PATRONES DE DETECCIÓN AUTOMÁTICA
+// =============================================================================
+
+Table brand_patterns {
+  id uuid [primary key, default: `gen_random_uuid()`]
+
+  // Associated company
+  victim_company_id uuid [not null, ref: > victim_companies.id, note: 'Empresa asociada']
+
+  // Pattern details
+  pattern_type varchar(50) [not null, note: 'Tipo: domain, keyword, visual']
+  pattern_value varchar(500) [not null, note: 'Valor del patrón']
+  pattern_regex varchar(1000) [note: 'Regex si aplica']
+
+  // Pattern metadata
+  confidence double [not null, default: 0.8, note: 'Confianza del patrón']
+  false_positive_rate double [not null, default: 0.1, note: 'Tasa de falsos positivos']
+  language varchar(5) [note: 'Idioma del patrón']
+
+  // Usage statistics
+  matches_count int [not null, default: 0, note: 'Veces que ha hecho match']
+  true_positives int [not null, default: 0, note: 'Verdaderos positivos']
+  false_positives int [not null, default: 0, note: 'Falsos positivos']
+
+  // Status
+  is_active boolean [not null, default: true, note: 'Si el patrón está activo']
+  created_by varchar(100) [not null, default: 'system', note: 'Quién lo creó']
+
+  // Timestamps
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    victim_company_id [name: 'idx_brand_patterns_victim_company_id']
+    pattern_type [name: 'idx_brand_patterns_pattern_type']
+  }
+
+  Note: 'Patrones para detección automática de impersonación de marcas'
+}
+
+// =============================================================================
+// CACHE DE RESULTADOS
+// =============================================================================
+
+Table verdicts {
+  id uuid [primary key, default: `gen_random_uuid()`]
+
+  // Target identifier
+  url_hash varchar(64) [not null, unique, note: 'Hash SHA256 de la URL normalizada']
+  normalized_url varchar(2083) [not null, note: 'URL normalizada']
+
+  // Cached verdict
+  is_malicious boolean [not null, note: 'Resultado cacheado']
+  risk_score double [not null, note: 'Score cacheado']
+  confidence double [not null, note: 'Confianza cacheada']
+  labels json [not null, default: '[]', note: 'Labels cacheadas']
+
+  // Cache metadata
+  analyzer_version varchar(20) [not null, note: 'Versión del analyzer']
+  model_version varchar(20) [not null, note: 'Versión del modelo']
+
+  // Validity
+  expires_at timestamptz [not null, note: 'Cuándo expira el cache']
+
+  // Usage tracking
+  hit_count int [not null, default: 0, note: 'Veces que se ha usado']
+  last_accessed timestamptz [not null, default: `now()`, note: 'Último acceso']
+
+  // Timestamps
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    url_hash [unique, name: 'idx_verdicts_url_hash']
+    normalized_url [name: 'idx_verdicts_normalized_url']
+    is_malicious [name: 'idx_verdicts_is_malicious']
+    expires_at [name: 'idx_verdicts_expires_at']
+  }
+
+  Note: 'Cache de análisis previos para evitar re-procesamiento'
+}
+
+// =============================================================================
+// TABLA DE SISTEMA
+// =============================================================================
+
+Table alembic_version {
+  version_num varchar(32) [primary key, note: 'Versión actual de migración de Alembic']
+
+  Note: 'Tabla de sistema para control de migraciones'
+}
+
+// =============================================================================
+// RELACIONES ADICIONALES Y NOTAS
+// =============================================================================
+
+// Relaciones principales (las FK ya están definidas arriba)
+// victim_companies ||--o{ victim_urls : "es impersonada en"
+// victim_companies ||--o{ phishing_campaigns : "es objetivo de"
+// victim_companies ||--o{ brand_patterns : "tiene patrones"
+// phishing_campaigns ||--o{ victim_urls : "incluye URLs"
+// url_scans ||--o{ victim_urls : "puede ser clasificada como"
+
+Note: '''
+## FLUJO DE DATOS PRINCIPAL
+
+1. **Entrada de URLs** → `url_scans` (análisis principal)
+2. **Feeds externos** → `feed_entries` → procesamiento → `indicators`
+3. **Clasificación automática** → `url_scans` + `brand_patterns` → `victim_urls`
+4. **Agrupación** → `victim_urls` → `phishing_campaigns`
+5. **Cache** → resultados frecuentes → `verdicts`
+
+## CONSULTAS PRINCIPALES POR PERFORMANCE
+
+- **Lookup de amenazas**: `indicators.indicator_value` (indexed)
+- **URLs por empresa**: `victim_urls.victim_company_id` + `url_scan_id` (indexed)
+- **Campañas activas**: `phishing_campaigns.status` + `victim_company_id` (indexed)
+- **Cache hits**: `verdicts.url_hash` (unique index)
+
+## MANTENIMIENTO AUTOMÁTICO
+
+- **Cache expiration**: `verdicts.expires_at` (indexed para limpieza)
+- **Feed deduplication**: `feed_entries.checksum` (indexed)
+- **Indicator lifecycle**: `indicators.expires_at` + `is_active`
+'''
