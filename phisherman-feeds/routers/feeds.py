@@ -122,7 +122,7 @@ async def refresh_all_feeds(background_tasks: BackgroundTasks) -> dict[str, Any]
         logger.error(f"Error starting refresh for all feeds: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to start feeds refresh: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/status")
@@ -151,7 +151,7 @@ async def get_feeds_status() -> dict[str, Any]:
         logger.error(f"Error getting feeds status: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to get feeds status: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/status/{feed_name}", response_model=FeedStatus)
@@ -177,7 +177,7 @@ async def get_feed_status(feed_name: str) -> FeedStatus:
         logger.error(f"Error getting status for feed {feed_name}: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to get feed status: {str(e)}"
-        )
+        ) from e
 
 
 @router.delete("/clean-old-entries")
@@ -205,7 +205,7 @@ async def clean_old_entries(
         logger.error(f"Error starting cleanup: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to start cleanup: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/sources")

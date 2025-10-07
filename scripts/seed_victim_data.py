@@ -35,7 +35,8 @@ class Settings:
 
 
 settings = Settings()
-from phisherman.datastore.victim_models import (
+
+from phisherman.datastore.victim_models import (  # noqa: E402
     BrandPattern,
     CampaignStatusEnum,
     IndustryEnum,

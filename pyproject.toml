@@ -27,6 +27,7 @@ python-whois = "^0.9.0"
 dnspython = "^2.4.0"
 cryptography = "^41.0.0"
 pyyaml = "^6.0.0"
+tldextract = "^5.1.0"
 tenacity = "^8.2.0"
 pyrate-limiter = "^3.1.0"
 asyncpg = "^0.30.0"
@@ -86,6 +87,11 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
+exclude = [
+    "phisherman-feeds/",
+    "phisherman-frontend/",
+    "phisherman-standalone/",
+]
 
 [[tool.mypy.overrides]]
 module = [

@@ -40,7 +40,7 @@ def normalize_url(url: str) -> str:
     try:
         parsed = urlparse(url)
     except Exception as e:
-        raise ValueError(f"Invalid URL format: {e}")
+        raise ValueError(f"Invalid URL format: {e}") from e
 
     # Normalize scheme
     scheme = parsed.scheme.lower()

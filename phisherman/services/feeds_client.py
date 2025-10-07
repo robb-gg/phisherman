@@ -48,9 +48,9 @@ class FeedsClient:
                     f"Feeds service HTTP error {e.response.status_code}: {e.response.text}"
                 )
                 raise e
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as e:
             logger.error(f"Feeds service timeout for URL: {url}")
-            raise Exception("Feeds service timeout")
+            raise Exception("Feeds service timeout") from e
         except Exception as e:
             logger.error(f"Feeds service error: {e}")
             raise e

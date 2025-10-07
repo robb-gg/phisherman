@@ -37,7 +37,7 @@ class UrlAnalysisRequest(BaseModel):
                 raise ValueError("URL too long (>2083 characters)")
 
         except Exception as e:
-            raise ValueError(f"Invalid URL format: {e}")
+            raise ValueError(f"Invalid URL format: {e}") from e
 
         return v
 

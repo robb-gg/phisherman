@@ -19,8 +19,8 @@ from sqlalchemy.orm import sessionmaker
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 
-from phisherman.datastore.database import Base
-from phisherman.datastore.models import FeedEntry, Indicator
+from phisherman.datastore.database import Base  # noqa: E402
+from phisherman.datastore.models import FeedEntry, Indicator  # noqa: E402
 
 
 async def migrate_data(sqlite_path: str, postgres_url: str):

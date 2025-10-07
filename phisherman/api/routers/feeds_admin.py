@@ -27,7 +27,7 @@ async def get_feeds_status(token: str = Depends(security)) -> dict[str, Any]:
         logger.error(f"Error getting feeds status: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to get feeds status: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/feeds/refresh/{feed_name}")
@@ -51,7 +51,9 @@ async def trigger_feed_refresh(
         return await feeds_client.refresh_feed(feed_name)
     except Exception as e:
         logger.error(f"Error refreshing feed {feed_name}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to refresh feed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to refresh feed: {str(e)}"
+        ) from e
 
 
 @router.get("/feeds/stats")
@@ -65,7 +67,7 @@ async def get_feeds_statistics(token: str = Depends(security)) -> dict[str, Any]
         logger.error(f"Error getting feeds stats: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to get feeds stats: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/feeds/health")

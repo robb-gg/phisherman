@@ -8,9 +8,11 @@ from phisherman.analyzers.dns_resolver import DnsResolverAnalyzer
 from phisherman.analyzers.feeds_analyzer import FeedsAnalyzer
 from phisherman.analyzers.protocol import AnalyzerProtocol, AnalyzerResult
 from phisherman.analyzers.rdap_whois import RdapWhoisAnalyzer
+from phisherman.analyzers.saas_detector_enhanced import EnhancedSaaSDetector
 from phisherman.analyzers.tls_probe import TlsProbeAnalyzer
 from phisherman.analyzers.url_heuristics import UrlHeuristicsAnalyzer
 from phisherman.analyzers.victim_analyzer import VictimAnalyzer
+from phisherman.analyzers.web_content_analyzer import WebContentAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,8 @@ class AnalysisEngine:
             "blacklist_feeds",
             "url_heuristics",
             "victim_analyzer",  # New analyzer for victim classification
+            "saas_detector_enhanced",  # MIGRATED FROM ANTIFRAUDE - Enhanced SaaS detection
+            "web_content_analyzer",  # MIGRATED FROM ANTIFRAUDE - Deep content analysis
             "tls_probe",
         ]
 
@@ -49,6 +53,8 @@ class AnalysisEngine:
             "blacklist_feeds": BlacklistFeedsAnalyzer,
             "url_heuristics": UrlHeuristicsAnalyzer,
             "victim_analyzer": VictimAnalyzer,  # New analyzer
+            "saas_detector_enhanced": EnhancedSaaSDetector,  # MIGRATED FROM ANTIFRAUDE
+            "web_content_analyzer": WebContentAnalyzer,  # MIGRATED FROM ANTIFRAUDE
             "tls_probe": TlsProbeAnalyzer,
         }
 

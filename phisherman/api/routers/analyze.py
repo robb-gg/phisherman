@@ -176,7 +176,7 @@ async def analyze_url(
                     "type": "validation_error",
                 }
             },
-        )
+        ) from e
     except Exception as e:
         # Log the error but don't expose internals
         import logging
@@ -193,4 +193,4 @@ async def analyze_url(
                     "type": "analysis_error",
                 }
             },
-        )
+        ) from e
