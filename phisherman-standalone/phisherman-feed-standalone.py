@@ -522,84 +522,102 @@ class FeedProcessor:
             response = await self.session.get(feed_url)
             response.raise_for_status()
 
-            lines = response.text.strip().split("\n")
+            # ✅ URLhaus devuelve un ZIP que contiene el JSON
+            import zipfile
+            from io import BytesIO
+
+            with zipfile.ZipFile(BytesIO(response.content)) as zf:
+                # El archivo JSON está dentro del ZIP
+                json_filename = zf.namelist()[0]  # Usualmente "urlhaus_full.json"
+                logger.info(f"Extracting {json_filename} from ZIP...")
+                with zf.open(json_filename) as f:
+                    json_content = f.read().decode('utf-8')
+
+            # ✅ El JSON es un objeto con IDs como keys y arrays de URLs como values
+            data = json.loads(json_content)
+            
             entries_processed = 0
-            skipped_lines = 0
+            duplicates = 0
+            no_url = 0
+            invalid_entries = 0
 
-            for line_num, line in enumerate(lines, 1):
-                if not line.strip():
-                    continue
-
-                try:
-                    entry = json.loads(line)
-
-                    # ✅ VALIDACIÓN IMPORTANTE: Verificar que sea un objeto dict
+            # Iterar sobre cada ID y sus URLs asociadas
+            for url_id, url_entries in data.items():
+                # Cada value puede ser un array de objetos o un objeto único
+                if not isinstance(url_entries, list):
+                    url_entries = [url_entries]
+                
+                for entry in url_entries:
                     if not isinstance(entry, dict):
-                        skipped_lines += 1
+                        invalid_entries += 1
                         continue
 
-                except json.JSONDecodeError as e:
-                    logger.debug(f"Skipping invalid JSON at line {line_num}: {e}")
-                    skipped_lines += 1
-                    continue
+                    url = entry.get("url", "").strip()
+                    if not url:
+                        no_url += 1
+                        continue
 
-                url = entry.get("url", "").strip()
-                if not url:
-                    continue
+                    # Usar el ID del JSON como external_id
+                    entry_str = f"{feed_name}:{url_id}:{url}"
+                    checksum = hashlib.sha256(entry_str.encode()).hexdigest()
 
-                entry_str = f"{feed_name}:{entry.get('id', url)}"
-                checksum = hashlib.sha256(entry_str.encode()).hexdigest()
+                    if await self.db.entry_exists(checksum):
+                        duplicates += 1
+                        continue
 
-                if await self.db.entry_exists(checksum):
-                    continue
+                    # Agregar el ID al entry para referencia
+                    entry["id"] = url_id
 
-                await self.db.save_feed_entry(
-                    {
-                        "feed_name": feed_name,
-                        "feed_url": feed_url,
-                        "raw_data": entry,
-                        "checksum": checksum,
-                        "external_id": str(entry.get("id", "")),
-                    }
-                )
+                    await self.db.save_feed_entry(
+                        {
+                            "feed_name": feed_name,
+                            "feed_url": feed_url,
+                            "raw_data": entry,
+                            "checksum": checksum,
+                            "external_id": url_id,
+                        }
+                    )
 
-                threat_tags = entry.get("tags", [])
-                if isinstance(threat_tags, str):
-                    threat_tags = [threat_tags]
-                elif not isinstance(threat_tags, list):
-                    threat_tags = []
+                    threat_tags = entry.get("tags", [])
+                    if isinstance(threat_tags, str):
+                        threat_tags = [threat_tags]
+                    elif not isinstance(threat_tags, list):
+                        threat_tags = []
 
-                await self.db.save_indicator(
-                    {
-                        "indicator_type": "url",
-                        "indicator_value": url,
-                        "threat_type": "malware",
-                        "severity": "high",
-                        "confidence": 0.9,
-                        "source": feed_name,
-                        "source_url": feed_url,
-                        "tags": ["malware", "urlhaus"] + threat_tags,
-                        "metadata": {
-                            "urlhaus_id": entry.get("id"),
-                            "dateadded": entry.get("dateadded"),
-                            "url_status": entry.get("url_status"),
-                            "threat": entry.get("threat"),
-                            "tags": threat_tags,
-                        },
-                    }
-                )
+                    await self.db.save_indicator(
+                        {
+                            "indicator_type": "url",
+                            "indicator_value": url,
+                            "threat_type": "malware",
+                            "severity": "high",
+                            "confidence": 0.9,
+                            "source": feed_name,
+                            "source_url": feed_url,
+                            "tags": ["malware", "urlhaus"] + threat_tags,
+                            "metadata": {
+                                "urlhaus_id": url_id,
+                                "dateadded": entry.get("dateadded"),
+                                "url_status": entry.get("url_status"),
+                                "threat": entry.get("threat"),
+                                "tags": threat_tags,
+                            },
+                        }
+                    )
 
-                entries_processed += 1
+                    entries_processed += 1
 
             await self.db.update_feed_stats(feed_name, entries_processed)
 
             logger.info(
-                f"URLhaus refresh completed: {entries_processed} new entries ({skipped_lines} lines skipped)"
+                f"URLhaus refresh completed: {entries_processed} new entries "
+                f"(duplicates: {duplicates}, invalid: {invalid_entries}, no_url: {no_url})"
             )
             return {
                 "status": "success",
                 "entries_processed": entries_processed,
-                "skipped_lines": skipped_lines,
+                "duplicates": duplicates,
+                "invalid_entries": invalid_entries,
+                "no_url": no_url,
             }
 
         except Exception as e:

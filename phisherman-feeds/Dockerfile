@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -8,13 +8,13 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy poetry files (rutas corregidas)
-COPY pyproject.toml poetry.lock ./
+# Copy poetry files and README (required by pyproject.toml)
+COPY pyproject.toml poetry.lock README.md ./
 
 # Install poetry and dependencies
 RUN pip install poetry && \
     poetry config virtualenvs.create false && \
-    poetry install --only=main
+    poetry install --only=main --no-root
 
 # Copy application code
 COPY phisherman-feeds/ ./phisherman-feeds/

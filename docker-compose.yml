@@ -11,17 +11,17 @@ services:
       - CELERY_BROKER_URL=redis://redis:${REDIS_PORT:-6379}
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - FEEDS_SERVICE_URL=http://feeds:8001
-    env_file:
-      - .env
+    # env_file:
+    #   - .env
     depends_on:
       - postgres
       - redis
       - feeds
-    volumes:
-      - .:/app
+    # volumes:
+    #   - .:/app
     networks:
       - internal
-    command: poetry run uvicorn phisherman.api.main:app --host ${API_HOST:-0.0.0.0} --port 8000 --reload
+    command: uvicorn phisherman.api.main:app --host ${API_HOST:-0.0.0.0} --port 8000
 
   worker:
     build: .
@@ -30,16 +30,16 @@ services:
       - REDIS_URL=redis://redis:${REDIS_PORT:-6379}
       - CELERY_BROKER_URL=redis://redis:${REDIS_PORT:-6379}
       - ENVIRONMENT=${ENVIRONMENT:-development}
-    env_file:
-      - .env
+    # env_file:
+    #   - .env
     depends_on:
       - postgres
       - redis
-    volumes:
-      - .:/app
+    # volumes:
+    #   - .:/app
     networks:
       - internal
-    command: poetry run celery -A phisherman.tasks.celery_app worker --loglevel=info
+    command: celery -A phisherman.tasks.celery_app worker --loglevel=info
 
   beat:
     build: .
@@ -48,16 +48,16 @@ services:
       - REDIS_URL=redis://redis:${REDIS_PORT:-6379}
       - CELERY_BROKER_URL=redis://redis:${REDIS_PORT:-6379}
       - ENVIRONMENT=${ENVIRONMENT:-development}
-    env_file:
-      - .env
+    # env_file:
+    #   - .env
     depends_on:
       - postgres
       - redis
-    volumes:
-      - .:/app
+    # volumes:
+    #   - .:/app
     networks:
       - internal
-    command: poetry run celery -A phisherman.tasks.celery_app beat --loglevel=info
+    command: celery -A phisherman.tasks.celery_app beat --loglevel=info
 
   postgres:
     image: postgres:16
@@ -114,11 +114,11 @@ services:
     depends_on:
       - postgres
       - redis
-    volumes:
-      - .:/app
+    # volumes:
+    #   - .:/app
     networks:
       - internal
-    command: uvicorn phisherman-feeds.main:app --host 0.0.0.0 --port 8001 --reload
+    command: uvicorn phisherman-feeds.main:app --host 0.0.0.0 --port 8001
 
   grafana:
     image: grafana/grafana:latest

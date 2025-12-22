@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 # Install Poetry
 RUN pip install poetry==1.7.1
 ENV POETRY_NO_INTERACTION=1
-ENV POETRY_VENV_IN_PROJECT=1
+ENV POETRY_VIRTUALENVS_CREATE=false
 ENV POETRY_CACHE_DIR=/tmp/poetry_cache
 
 # Set work directory
@@ -42,4 +42,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/healthz || exit 1
 
 # Default command
-CMD ["poetry", "run", "uvicorn", "phisherman.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "phisherman.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

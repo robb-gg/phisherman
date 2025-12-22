@@ -85,8 +85,8 @@ class Indicator(Base):
         String(50), nullable=False, index=True
     )  # url, domain, ip, hash
     indicator_value: Mapped[str] = mapped_column(
-        String(2083), nullable=False, index=True
-    )
+        Text, nullable=False, index=False
+    )  # Index created manually as hash index (see migration 004)
 
     # Threat classification
     threat_type: Mapped[str] = mapped_column(
@@ -99,7 +99,7 @@ class Indicator(Base):
 
     # Source information
     source: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    source_url: Mapped[str | None] = mapped_column(String(2083), nullable=True)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     extra_data: Mapped[dict[str, Any]] = mapped_column(
         "metadata", JSON, nullable=False, default=dict
