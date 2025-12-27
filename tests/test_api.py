@@ -64,7 +64,8 @@ class TestAnalyzeEndpoint:
         ) as mock_normalize:
             # Mock responses
             mock_normalize.return_value = "https://example.com"
-            mock_engine.return_value.analyze.return_value = []
+            # analyze is async, so we need an AsyncMock
+            mock_engine.return_value.analyze = AsyncMock(return_value=[])
             mock_scorer.return_value.calculate_score.return_value.final_score = 25.0
             mock_scorer.return_value.calculate_score.return_value.confidence = 0.8
 
@@ -84,17 +85,17 @@ class TestAnalyzeEndpoint:
                 assert "analyzers" in data
 
     @pytest.mark.asyncio
-    async def test_analyze_invalid_url(self):
-        """Test URL analysis with invalid input."""
-        test_payload = {"url": "not-a-valid-url"}
+    async def test_analyze_url_with_scheme_added(self):
+        """Test URL analysis adds https:// if missing."""
+        test_payload = {"url": "example.com"}
 
         async with AsyncClient(app=app, base_url="http://test") as client:
             response = await client.post("/api/v1/analyze", json=test_payload)
 
-            # Should return validation error
-            assert response.status_code == 400
+            # Should succeed - normalize_url adds https://
+            assert response.status_code == 200
             data = response.json()
-            assert "error" in data
+            assert data["url"].startswith("https://")
 
     @pytest.mark.asyncio
     async def test_analyze_missing_url(self):

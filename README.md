@@ -57,6 +57,23 @@ curl http://localhost:8000/api/v1/victims/stats
 curl http://localhost:8000/api/v1/victims/industry/banking/trends
 ```
 
+### Frontend Setup
+
+```bash
+# Navigate to frontend directory
+cd phisherman-frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+The frontend will be available at `http://localhost:3000`. Make sure the backend API is running on port 8000.
+
+> **Note**: The frontend proxies `/api/v1/*` requests to the backend automatically.
+
 ### API Usage
 
 ```bash
@@ -369,6 +386,8 @@ make migrate      # Run DB migrations
 make seed         # Seed victim cataloging data (companies, campaigns)
 make up           # Start all services
 make down         # Stop services
+make frontend-install # Install frontend dependencies
+make frontend     # Run frontend dev server (localhost:3000)
 ```
 
 ### Testing

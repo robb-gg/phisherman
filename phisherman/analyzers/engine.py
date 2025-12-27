@@ -12,7 +12,7 @@ from phisherman.analyzers.saas_detector_enhanced import EnhancedSaaSDetector
 from phisherman.analyzers.tls_probe import TlsProbeAnalyzer
 from phisherman.analyzers.url_heuristics import UrlHeuristicsAnalyzer
 from phisherman.analyzers.victim_analyzer import VictimAnalyzer
-from phisherman.analyzers.web_content_analyzer import WebContentAnalyzer
+from phisherman.analyzers.web_content import WebContentAnalyzer
 
 logger = logging.getLogger(__name__)
 

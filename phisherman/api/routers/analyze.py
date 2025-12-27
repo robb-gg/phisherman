@@ -1,8 +1,9 @@
 """URL analysis endpoint."""
 
+import logging
 import time
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -19,6 +20,8 @@ from phisherman.api.schemas import (
 from phisherman.scorer.linear_scorer import LinearScorer
 from phisherman.utils.cache import AnalysisCache
 from phisherman.utils.url_normalizer import normalize_url
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["analysis"], dependencies=[Depends(rate_limit_dependency)])
 
@@ -70,7 +73,7 @@ async def analyze_url(
                 evidence={},  # Don't store evidence in cache to save space
                 analyzers=[],  # Don't store analyzer details in cache
                 analysis_id=analysis_id,
-                timestamp=datetime.utcnow().isoformat() + "Z",
+                timestamp=datetime.now(UTC).isoformat(),
                 processing_time_ms=processing_time,
                 cached=True,  # This is cached!
             )
@@ -138,9 +141,6 @@ async def analyze_url(
             )
         except Exception as cache_error:
             # Log cache error but don't fail the request
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.warning(
                 f"Failed to cache result for {normalized_url}: {cache_error}"
             )
@@ -179,9 +179,6 @@ async def analyze_url(
         ) from e
     except Exception as e:
         # Log the error but don't expose internals
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.exception("Analysis failed for URL %s: %s", request.url, e)
 
         raise HTTPException(

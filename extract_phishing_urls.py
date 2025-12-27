@@ -23,8 +23,9 @@ async def extract_phishing_urls():
 
         # 1. URLs de Indicators (feeds externos)
         print("🔍 Extrayendo URLs de Indicators (feeds externos)...")
-        indicator_query = text("""
-            SELECT 
+        indicator_query = text(
+            """
+            SELECT
                 indicator_value as url,
                 threat_type,
                 severity,
@@ -37,7 +38,8 @@ async def extract_phishing_urls():
                 AND threat_type = 'phishing'
             ORDER BY last_seen DESC
             LIMIT 50
-        """)
+        """
+        )
 
         result = await db.execute(indicator_query)
         indicator_urls = []
@@ -58,8 +60,9 @@ async def extract_phishing_urls():
 
         # 2. URLs de UrlScans (URLs maliciosas analizadas)
         print("🔍 Extrayendo URLs de URL Scans (análisis internos)...")
-        urlscan_query = text("""
-            SELECT 
+        urlscan_query = text(
+            """
+            SELECT
                 normalized_url as url,
                 domain,
                 risk_score,
@@ -70,7 +73,8 @@ async def extract_phishing_urls():
             WHERE is_malicious = true
             ORDER BY created_at DESC
             LIMIT 50
-        """)
+        """
+        )
 
         result = await db.execute(urlscan_query)
         urlscan_urls = []
@@ -123,14 +127,18 @@ async def main():
         with open(output_file, "w") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
 
-        print(f"\n✅ Extracción completada!")
+        print("\n✅ Extracción completada!")
         print(f"📊 Total URLs extraídas: {results['total_urls']}")
-        print(f"   - De feeds externos (indicators): {len(results['sources']['indicators'])}")
-        print(f"   - De análisis internos (url_scans): {len(results['sources']['url_scans'])}")
+        print(
+            f"   - De feeds externos (indicators): {len(results['sources']['indicators'])}"
+        )
+        print(
+            f"   - De análisis internos (url_scans): {len(results['sources']['url_scans'])}"
+        )
         print(f"\n💾 Guardado en: {output_file}")
 
         # Mostrar algunas URLs de ejemplo
-        print(f"\n📋 EJEMPLOS DE URLs EXTRAÍDAS:")
+        print("\n📋 EJEMPLOS DE URLs EXTRAÍDAS:")
         print("-" * 60)
 
         all_urls = (
@@ -156,7 +164,7 @@ async def main():
                 f.write(f"{url_data['url']}\n")
 
         print(f"\n📝 También guardado en formato simple: {simple_urls_file}")
-        print(f"   (Una URL por línea, listo para copiar/pegar)")
+        print("   (Una URL por línea, listo para copiar/pegar)")
 
     except Exception as e:
         print(f"\n❌ Error durante la extracción: {e}")
@@ -167,4 +175,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

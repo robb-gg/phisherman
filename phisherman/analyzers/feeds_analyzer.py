@@ -1,100 +1,70 @@
-"""Analyzer que integra el microservicio de feeds."""
+"""Analyzer that integrates with the feeds microservice."""
 
 import asyncio
 import logging
-from typing import Any
 
+from phisherman.analyzers.protocol import AnalyzerResult, BaseAnalyzer
 from phisherman.services.feeds_client import feeds_client
-
-from .protocol import AnalyzerProtocol
 
 logger = logging.getLogger(__name__)
 
 
-class FeedsAnalyzer(AnalyzerProtocol):
+class FeedsAnalyzer(BaseAnalyzer):
     """
-    Analyzer que consulta el microservicio de feeds para threat intelligence.
+    Analyzer that queries the feeds microservice for threat intelligence.
 
-    Este analyzer actúa como puente entre el sistema de análisis principal
-    y el microservicio de feeds, proporcionando acceso rápido a todas las
-    fuentes de threat intelligence disponibles.
+    This analyzer acts as a bridge between the main analysis system
+    and the feeds microservice, providing quick access to all available
+    threat intelligence sources.
     """
 
     def __init__(self):
-        self.name = "feeds"
-        self.timeout = 10
+        super().__init__(timeout=10, max_retries=2)
 
-    async def analyze(self, url: str, domain: str, **kwargs) -> dict[str, Any]:
+    @property
+    def name(self) -> str:
+        return "feeds"
+
+    @property
+    def version(self) -> str:
+        return "1.0.0"
+
+    @property
+    def weight(self) -> float:
+        return 1.5  # High weight for feed matches
+
+    async def _analyze_impl(self, url: str) -> AnalyzerResult:
         """
-        Analizar URL consultando el microservicio de feeds.
+        Analyze URL by querying the feeds microservice.
+
+        Args:
+            url: URL to analyze.
+
+        Returns:
+            AnalyzerResult with feed lookup results.
         """
         try:
-            # Verificar health del servicio de feeds
+            # Check feeds service health
             service_healthy = await feeds_client.health_check()
             if not service_healthy:
                 logger.warning("Feeds service is not healthy, skipping feeds analysis")
                 return self._create_error_result("Feeds service unavailable")
 
-            # Consultar feeds
+            # Query feeds
             feeds_result = await asyncio.wait_for(
-                feeds_client.lookup_url(url, normalize=True), timeout=self.timeout
+                feeds_client.lookup_url(url, normalize=True),
+                timeout=self.timeout,
             )
 
-            # Procesar resultado
+            # Process result
             is_threat = feeds_result.get("is_threat", False)
             matches = feeds_result.get("matches", [])
 
             if not is_threat:
-                return self._create_clean_result(feeds_result)
+                return self._create_clean_result(url, feeds_result)
 
-            # Analizar matches para determinar score y clasificación
-            max_confidence = 0
-            threat_types = set()
-            severities = set()
-            sources = set()
-
-            for match in matches:
-                confidence = match.get("confidence", 0)
-                if confidence > max_confidence:
-                    max_confidence = confidence
-
-                threat_types.add(match.get("threat_type", "unknown"))
-                severities.add(match.get("severity", "medium"))
-                sources.add(match.get("source", "unknown"))
-
-            # Calcular score final basado en confianza y número de fuentes
-            base_score = max_confidence * 0.7  # Base del score más alto
-            source_bonus = min(len(sources) * 0.1, 0.2)  # Bonus por múltiples fuentes
-            final_score = min(base_score + source_bonus, 1.0)
-
-            # Determinar clasificación principal
-            primary_threat = self._determine_primary_threat(threat_types)
-            primary_severity = self._determine_primary_severity(severities)
-
-            return {
-                "analyzer": self.name,
-                "url": url,
-                "domain": domain,
-                "is_malicious": True,
-                "confidence": final_score,
-                "threat_type": primary_threat,
-                "severity": primary_severity,
-                "sources": list(sources),
-                "total_matches": len(matches),
-                "feeds_data": {
-                    "original_result": feeds_result,
-                    "threat_types": list(threat_types),
-                    "severities": list(severities),
-                    "max_source_confidence": max_confidence,
-                },
-                "details": {
-                    "matched_in_feeds": True,
-                    "feed_sources": list(sources),
-                    "threat_classification": primary_threat,
-                    "severity_level": primary_severity,
-                    "detection_count": len(matches),
-                },
-            }
+            # Analyze matches to determine score and classification
+            return self._create_threat_result(url, matches, feeds_result)
 
         except TimeoutError:
             logger.error(f"Feeds analyzer timeout for URL: {url}")
@@ -104,46 +74,102 @@ class FeedsAnalyzer(AnalyzerProtocol):
             logger.error(f"Feeds analyzer error for URL {url}: {e}")
             return self._create_error_result(f"Analysis error: {str(e)}")
 
-    def _create_clean_result(self, feeds_result: dict[str, Any]) -> dict[str, Any]:
-        """Crear resultado para URL limpia."""
-        return {
-            "analyzer": self.name,
-            "url": feeds_result.get("url", ""),
-            "domain": "",  # Se llena externamente
-            "is_malicious": False,
-            "confidence": 0.0,
-            "threat_type": "clean",
-            "severity": "none",
-            "sources": [],
-            "total_matches": 0,
-            "feeds_data": {
-                "original_result": feeds_result,
-                "checked_at": feeds_result.get("last_checked"),
-            },
-            "details": {
+    def _create_clean_result(self, url: str, feeds_result: dict) -> AnalyzerResult:
+        """Create result for clean URL (not in any feed)."""
+        return AnalyzerResult(
+            analyzer_name=self.name,
+            risk_score=0.0,
+            confidence=0.8,  # Confident it's not in feeds
+            labels=["clean", "not_in_feeds"],
+            evidence={
+                "url": url,
                 "matched_in_feeds": False,
-                "status": "clean",
+                "feeds_checked": True,
                 "normalized_url": feeds_result.get("normalized_url"),
+                "last_checked": feeds_result.get("last_checked"),
             },
-        }
+            execution_time_ms=0.0,
+        )
 
-    def _create_error_result(self, error_msg: str) -> dict[str, Any]:
-        """Crear resultado de error."""
-        return {
-            "analyzer": self.name,
-            "is_malicious": False,
-            "confidence": 0.0,
-            "threat_type": "error",
-            "severity": "none",
-            "error": error_msg,
-            "details": {"status": "error", "error_message": error_msg},
-        }
+    def _create_threat_result(
+        self,
+        url: str,
+        matches: list[dict],
+        feeds_result: dict,
+    ) -> AnalyzerResult:
+        """Create result for URL found in threat feeds."""
+        max_confidence = 0.0
+        threat_types = set()
+        severities = set()
+        sources = set()
 
-    def _determine_primary_threat(self, threat_types: set) -> str:
-        """
-        Determinar el tipo de amenaza principal basado en prioridad.
-        """
-        # Orden de prioridad
+        for match in matches:
+            confidence = match.get("confidence", 0)
+            if confidence > max_confidence:
+                max_confidence = confidence
+
+            threat_types.add(match.get("threat_type", "unknown"))
+            severities.add(match.get("severity", "medium"))
+            sources.add(match.get("source", "unknown"))
+
+        # Calculate risk score based on confidence and number of sources
+        # Base score from highest confidence match (scaled to 0-100)
+        base_score = max_confidence * 70
+        # Bonus for multiple sources (up to 20 points)
+        source_bonus = min(len(sources) * 10, 20)
+        # Additional 10 points for being in any feed
+        feed_bonus = 10
+
+        risk_score = min(base_score + source_bonus + feed_bonus, 100.0)
+
+        # Determine primary threat type and severity
+        primary_threat = self._determine_primary_threat(threat_types)
+        primary_severity = self._determine_primary_severity(severities)
+
+        # Build labels
+        labels = [
+            "in_threat_feeds",
+            f"threat_{primary_threat}",
+            f"severity_{primary_severity}",
+        ]
+        for source in sources:
+            labels.append(f"source_{source}")
+
+        return AnalyzerResult(
+            analyzer_name=self.name,
+            risk_score=risk_score,
+            confidence=max_confidence,
+            labels=labels,
+            evidence={
+                "url": url,
+                "matched_in_feeds": True,
+                "total_matches": len(matches),
+                "sources": list(sources),
+                "threat_types": list(threat_types),
+                "severities": list(severities),
+                "max_source_confidence": max_confidence,
+                "primary_threat": primary_threat,
+                "primary_severity": primary_severity,
+                "feeds_data": feeds_result,
+            },
+            execution_time_ms=0.0,
+        )
+
+    def _create_error_result(self, error_msg: str) -> AnalyzerResult:
+        """Create result for analysis error."""
+        return AnalyzerResult(
+            analyzer_name=self.name,
+            risk_score=0.0,
+            confidence=0.0,
+            labels=["feeds_error"],
+            evidence={"error": error_msg},
+            execution_time_ms=0.0,
+            error=error_msg,
+        )
+
+    @staticmethod
+    def _determine_primary_threat(threat_types: set) -> str:
+        """Determine primary threat type based on priority."""
         priority_order = ["malware", "phishing", "suspicious", "unknown"]
 
         for threat_type in priority_order:
@@ -152,11 +178,9 @@ class FeedsAnalyzer(AnalyzerProtocol):
 
         return "unknown"
 
-    def _determine_primary_severity(self, severities: set) -> str:
-        """
-        Determinar la severidad principal basada en el nivel más alto.
-        """
-        # Orden de prioridad (más alto a más bajo)
+    @staticmethod
+    def _determine_primary_severity(severities: set) -> str:
+        """Determine primary severity based on highest level."""
         severity_priority = ["critical", "high", "medium", "low", "info"]
 
         for severity in severity_priority:
@@ -164,28 +188,3 @@ class FeedsAnalyzer(AnalyzerProtocol):
                 return severity
 
         return "medium"
-
-    async def get_analyzer_info(self) -> dict[str, Any]:
-        """Información sobre el analyzer."""
-        try:
-            feeds_status = await feeds_client.get_feeds_status()
-            return {
-                "name": self.name,
-                "description": "Threat intelligence feeds analyzer",
-                "version": "1.0.0",
-                "feeds_service_status": "healthy",
-                "available_feeds": [
-                    feed["name"]
-                    for feed in feeds_status.get("feeds", [])
-                    if feed.get("status") == "active"
-                ],
-                "total_indicators": feeds_status.get("total_entries", 0),
-            }
-        except Exception as e:
-            return {
-                "name": self.name,
-                "description": "Threat intelligence feeds analyzer",
-                "version": "1.0.0",
-                "feeds_service_status": "error",
-                "error": str(e),
-            }

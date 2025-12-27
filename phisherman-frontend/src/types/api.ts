@@ -4,7 +4,7 @@ export interface AnalyzerResult {
   score: number;
   confidence: number;
   labels: string[];
-  evidence: Record<string, any>;
+  evidence: Record<string, unknown>;
   execution_time_ms: number;
   error?: string;
 }
@@ -15,7 +15,7 @@ export interface AnalysisResponse {
   score: number;
   confidence: number;
   labels: string[];
-  evidence: Record<string, any>;
+  evidence: Record<string, unknown>;
   analyzers: AnalyzerResult[];
   analysis_id?: string;
   timestamp: string;
@@ -34,4 +34,14 @@ export interface ApiError {
     message: string;
     type: string;
   };
+}
+
+// History types
+export interface HistoryEntry {
+  id: string;
+  url: string;
+  score: number;
+  malicious: boolean;
+  timestamp: string;
+  labels: string[];
 }

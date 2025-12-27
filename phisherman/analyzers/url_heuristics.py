@@ -191,12 +191,12 @@ class UrlHeuristicsAnalyzer(BaseAnalyzer):
         subdomain_count = len(domain_parts) - 2  # Subtract domain + TLD
         domain_features["subdomain_count"] = subdomain_count
 
-        if subdomain_count > 3:
-            labels.append("excessive_subdomains")
-            risk += 15
-        elif subdomain_count > 5:
+        if subdomain_count > 5:
             labels.append("many_subdomains")
             risk += 25
+        elif subdomain_count > 3:
+            labels.append("excessive_subdomains")
+            risk += 15
 
         # TLD risk analysis
         if domain_parts:
@@ -214,12 +214,12 @@ class UrlHeuristicsAnalyzer(BaseAnalyzer):
         domain_length = len(domain)
         domain_features["length"] = domain_length
 
-        if domain_length > 50:
-            labels.append("long_domain")
-            risk += 10
-        elif domain_length > 75:
+        if domain_length > 75:
             labels.append("very_long_domain")
             risk += 15
+        elif domain_length > 50:
+            labels.append("long_domain")
+            risk += 10
 
         # Character analysis
         digit_count = sum(c.isdigit() for c in domain)
@@ -366,12 +366,12 @@ class UrlHeuristicsAnalyzer(BaseAnalyzer):
         url_length = len(url)
         structure_features["length"] = url_length
 
-        if url_length > 200:
-            labels.append("long_url")
-            risk += 10
-        elif url_length > 400:
+        if url_length > 400:
             labels.append("very_long_url")
             risk += 20
+        elif url_length > 200:
+            labels.append("long_url")
+            risk += 10
 
         # Character distribution analysis
         char_counts = Counter(url.lower())

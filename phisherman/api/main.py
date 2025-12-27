@@ -18,6 +18,7 @@ from phisherman.api.metrics import REQUEST_COUNT, REQUEST_DURATION
 from phisherman.api.routers import analyze, health
 from phisherman.config import settings
 from phisherman.datastore.database import engine, init_db
+from phisherman.services.feeds_client import FeedsClient
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("Shutting down Phisherman API")
+    await FeedsClient.close()
     await engine.dispose()
 
 

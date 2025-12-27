@@ -1,4 +1,4 @@
-.PHONY: help install run test lint fmt migrate up down seed clean elk-install elk-up elk-down elk-migrate elk-setup elk-dashboard
+.PHONY: help install run test lint fmt migrate up down seed clean elk-install elk-up elk-down elk-migrate elk-setup elk-dashboard frontend frontend-install
 
 # Variables
 PYTHON := poetry run python
@@ -92,6 +92,17 @@ build: ## Build Docker image
 
 docker-run: ## Run with Docker (single container)
 	docker run -p 8000:8000 --env-file .env phisherman:latest
+
+# ========== Frontend Commands ==========
+
+frontend-install: ## Install frontend dependencies
+	cd phisherman-frontend && npm install
+
+frontend: ## Run frontend development server
+	cd phisherman-frontend && npm run dev
+
+frontend-build: ## Build frontend for production
+	cd phisherman-frontend && npm run build
 
 # ========== ELK Stack Commands ==========
 

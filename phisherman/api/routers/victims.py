@@ -353,10 +353,16 @@ async def get_victim_urls(
     Provides the actual malicious URLs with classification details.
     Essential for security teams and threat intelligence.
     """
-
-    # Note: This would need to join with UrlScan model to get actual URLs
-    # For now, returning structure without actual URL content
-    stmt = select(VictimUrl).where(VictimUrl.victim_company_id == company_id)
+    # Build query with eager loading of related entities
+    stmt = (
+        select(VictimUrl)
+        .options(
+            selectinload(VictimUrl.url_scan),
+            selectinload(VictimUrl.victim_company),
+            selectinload(VictimUrl.campaign),
+        )
+        .where(VictimUrl.victim_company_id == company_id)
+    )
 
     if verified_only:
         stmt = stmt.where(VictimUrl.human_verified)
@@ -366,14 +372,18 @@ async def get_victim_urls(
     result = await db.execute(stmt)
     victim_urls = result.scalars().all()
 
-    # TODO: Join with UrlScan to get actual URLs and company/campaign names
-    # This is a simplified response structure for now
     return [
         VictimUrlResponse(
             id=str(victim_url.id),
-            url=f"[URL ID: {victim_url.url_scan_id}]",  # Placeholder
-            victim_company_name="[Company Name]",  # Would come from join
-            campaign_name="[Campaign Name]" if victim_url.campaign_id else None,
+            url=victim_url.url_scan.url if victim_url.url_scan else "[URL not found]",
+            victim_company_name=(
+                victim_url.victim_company.name
+                if victim_url.victim_company
+                else "[Company not found]"
+            ),
+            campaign_name=(
+                victim_url.campaign.name if victim_url.campaign else None
+            ),
             impersonation_type=victim_url.impersonation_type,
             similarity_score=victim_url.similarity_score,
             deception_techniques=victim_url.deception_techniques,

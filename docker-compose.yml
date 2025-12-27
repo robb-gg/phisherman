@@ -6,13 +6,13 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-phisherman}:${POSTGRES_PASSWORD:-password}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-phisherman}
-      - REDIS_URL=redis://redis:${REDIS_PORT:-6379}
-      - CELERY_BROKER_URL=redis://redis:${REDIS_PORT:-6379}
+      - DATABASE_URL=postgresql+psycopg://phisherman:password@postgres:5432/phisherman
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - FEEDS_SERVICE_URL=http://feeds:8001
-    # env_file:
-    #   - .env
+    env_file:
+      - .env
     depends_on:
       - postgres
       - redis

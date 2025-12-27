@@ -15,20 +15,23 @@ class LinearScorer(BaseScorer):
     """
     Linear weighted scorer that combines analyzer results using configurable weights.
 
-    The final score is calculated as a weighted average of analyzer scores,
+    The final score is calculated as a weighted SUM of analyzer scores (capped at 100),
     with additional adjustments based on confidence levels and consensus.
 
-    Score = Σ(analyzer_score * weight * confidence) / Σ(weight * confidence)
+    Score = min(100, Σ(analyzer_score * weight * confidence))
     """
 
     def __init__(self, config_path: str = None):
-        # Default weights for analyzers
+        # Default weights for analyzers (multipliers for their scores)
         self.default_weights = {
-            "blacklist_feeds": 0.9,  # Highest weight for known bad indicators
-            "dns_resolver": 0.8,  # High weight for DNS reputation
-            "rdap_whois": 0.7,  # Good weight for registration data
-            "url_heuristics": 0.6,  # Moderate weight for heuristics
-            "tls_probe": 0.4,  # Lower weight (especially for placeholder)
+            "blacklist_feeds": 1.5,  # Highest weight - known bad indicators are critical
+            "rdap_whois": 1.2,  # High weight - registration data is very reliable
+            "dns_resolver": 0.8,  # Good weight for DNS signals
+            "url_heuristics": 0.9,  # Good weight for URL pattern detection
+            "tls_probe": 0.7,  # Moderate weight for TLS signals
+            "victim_analyzer": 0.8,  # Good weight for victim classification
+            "saas_detector_enhanced": 0.6,  # Moderate weight
+            "web_content_analyzer": 0.9,  # Good weight for content analysis
         }
 
         # Risk thresholds
@@ -110,9 +113,9 @@ class LinearScorer(BaseScorer):
                 },
             )
 
-        # Calculate weighted score
+        # Calculate weighted score using SUMMATION (not average)
+        # This ensures multiple risk signals compound rather than dilute
         total_weighted_score = 0.0
-        total_weights = 0.0
         analyzer_weights = {}
         analyzer_contributions = {}
 
@@ -120,29 +123,22 @@ class LinearScorer(BaseScorer):
             analyzer_name = result.analyzer_name
             weight = self.default_weights.get(analyzer_name, 0.5)  # Default weight 0.5
 
-            # Adjust weight by confidence
-            effective_weight = weight * result.confidence
-
-            # Calculate contribution
-            contribution = result.risk_score * effective_weight
+            # Only positive scores contribute (negative scores reduce risk)
+            # Adjust contribution by confidence
+            contribution = result.risk_score * weight * result.confidence
 
             total_weighted_score += contribution
-            total_weights += effective_weight
 
             analyzer_weights[analyzer_name] = weight
             analyzer_contributions[analyzer_name] = {
                 "raw_score": result.risk_score,
                 "confidence": result.confidence,
                 "weight": weight,
-                "effective_weight": effective_weight,
                 "contribution": contribution,
             }
 
-        # Calculate final score
-        if total_weights > 0:
-            final_score = total_weighted_score / total_weights
-        else:
-            final_score = 0.0
+        # Final score is the sum (capped at 100)
+        final_score = total_weighted_score
 
         # Apply consensus adjustments
         final_score, consensus_details = self._apply_consensus_adjustments(
@@ -165,7 +161,7 @@ class LinearScorer(BaseScorer):
             "consensus_adjustments": consensus_details,
             "risk_level": risk_level,
             "total_weighted_score": total_weighted_score,
-            "total_weights": total_weights,
+            "scoring_method": "weighted_sum",
         }
 
         return ScoringResult(
@@ -179,42 +175,95 @@ class LinearScorer(BaseScorer):
     def _apply_consensus_adjustments(
         self, base_score: float, results: list[AnalyzerResult]
     ) -> tuple[float, dict]:
-        """Apply consensus-based adjustments to the base score."""
-        if len(results) < 2:
-            return base_score, {"applied": False, "reason": "insufficient_analyzers"}
-
-        scores = [r.risk_score for r in results]
-        high_scores = [s for s in scores if s >= 70]  # High risk threshold
-        low_scores = [s for s in scores if s <= 30]  # Low risk threshold
-
+        """Apply consensus-based adjustments and high-risk signal bonuses."""
         adjustments = {
             "consensus_bonus": 0.0,
-            "consensus_penalty": 0.0,
+            "signal_bonus": 0.0,
             "applied": True,
+            "triggered_signals": [],
         }
 
-        # High consensus bonus
-        if len(high_scores) >= len(results) * 0.7:  # 70% agreement on high risk
-            consensus_bonus = min(15.0, len(high_scores) * 3.0)
-            base_score += consensus_bonus
-            adjustments["consensus_bonus"] = consensus_bonus
-            adjustments["reason"] = "high_risk_consensus"
+        # Collect all labels from all analyzers
+        all_labels = []
+        for result in results:
+            all_labels.extend(result.labels)
 
-        # Low consensus penalty (reduce false positives)
-        elif len(low_scores) >= len(results) * 0.7:  # 70% agreement on low risk
-            consensus_penalty = min(10.0, len(low_scores) * 2.0)
-            base_score -= consensus_penalty
-            adjustments["consensus_penalty"] = consensus_penalty
-            adjustments["reason"] = "low_risk_consensus"
+        # HIGH-RISK SIGNAL COMBINATIONS - these indicate phishing with high confidence
+        high_risk_signals = {
+            # Domain age signals
+            "very_new_domain": 25.0,  # Domain created recently - major red flag
+            "new_domain": 15.0,  # Domain created within months
+            "high_risk_tld": 20.0,  # Suspicious TLD (.cc, .tk, etc.)
+            # Certificate signals
+            "newly_issued_cert": 10.0,  # Certificate just issued
+            "issuer_free_ca": 5.0,  # Free CA (Let's Encrypt) - common in phishing
+            "self_signed_certificate": 30.0,  # Self-signed cert
+            "expired_certificate": 25.0,  # Expired cert
+            "hostname_mismatch": 35.0,  # Cert doesn't match domain
+            # Content signals
+            "has_password_input": 15.0,  # Has login form
+            "suspicious_keyword": 10.0,  # URL has suspicious words
+            "suspicious_keywords": 15.0,  # Content has phishing keywords
+            "credential_theft_indicators": 25.0,  # Password + phishing keywords
+            # URL structure signals
+            "excessive_subdomains": 15.0,  # Too many subdomains
+            "suspicious_path": 10.0,  # Path looks suspicious
+            # Classification signals
+            "unclassified_potential_phishing": 10.0,  # Potential phishing detected
+            # REDIRECT SIGNALS - very important for evasion detection
+            "javascript_redirect": 20.0,  # JS redirect detected
+            "meta_refresh_redirect": 15.0,  # Meta refresh redirect
+            "redirector_page": 30.0,  # Page is primarily a redirector
+            "multiple_redirects": 15.0,  # Long redirect chain
+            "shortener_in_redirect": 20.0,  # URL shortener in chain
+            # CLOAKING SIGNALS
+            "potential_cloaking": 25.0,  # Cloaking techniques detected in code
+            "ua_cloaking_detected": 35.0,  # Active cloaking detected via multi-UA
+            "cloaking_redirect_cloaking": 40.0,  # Different redirects per UA
+            "cloaking_content_cloaking": 30.0,  # Different content per UA
+            "cloaking_credential_cloaking": 45.0,  # Password form only for mobile
+            "cloaking_status_code_cloaking": 25.0,  # Different status codes per UA
+        }
 
-        # Disagreement penalty (reduce confidence when analyzers disagree)
-        else:
-            score_std = self._calculate_standard_deviation(scores)
-            if score_std > 30:  # High disagreement
-                disagreement_penalty = min(5.0, score_std * 0.1)
-                base_score -= disagreement_penalty
-                adjustments["consensus_penalty"] = disagreement_penalty
-                adjustments["reason"] = "high_disagreement"
+        # TRUST SIGNALS - reduce score for legitimate sites
+        trust_signals = {
+            "established_domain": -30.0,  # Domain registered long ago
+            "issuer_enterprise": -15.0,  # Enterprise CA (DigiCert, etc.)
+            "known_provider": -10.0,  # Known legitimate provider
+        }
+
+        signal_bonus = 0.0
+        triggered = []
+
+        for label, bonus in high_risk_signals.items():
+            if label in all_labels:
+                signal_bonus += bonus
+                triggered.append(f"+{label}")
+
+        for label, penalty in trust_signals.items():
+            if label in all_labels:
+                signal_bonus += penalty  # penalty is negative
+                triggered.append(f"-{label}")
+
+        # Compound bonus: multiple signals together are more suspicious
+        if len(triggered) >= 3:
+            compound_bonus = len(triggered) * 5.0
+            signal_bonus += compound_bonus
+            adjustments["compound_bonus"] = compound_bonus
+
+        base_score += signal_bonus
+        adjustments["signal_bonus"] = signal_bonus
+        adjustments["triggered_signals"] = triggered
+
+        # Original consensus logic
+        if len(results) >= 2:
+            scores = [r.risk_score for r in results]
+            high_scores = [s for s in scores if s >= 50]
+
+            if len(high_scores) >= len(results) * 0.5:
+                consensus_bonus = min(15.0, len(high_scores) * 3.0)
+                base_score += consensus_bonus
+                adjustments["consensus_bonus"] = consensus_bonus
 
         return base_score, adjustments
 

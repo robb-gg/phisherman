@@ -314,6 +314,9 @@ class VictimUrl(Base):
     campaign: Mapped[PhishingCampaign | None] = relationship(
         "PhishingCampaign", back_populates="victim_urls"
     )
+    url_scan: Mapped["UrlScan"] = relationship(  # type: ignore[name-defined]
+        "UrlScan", lazy="joined"
+    )
 
 
 class BrandPattern(Base):

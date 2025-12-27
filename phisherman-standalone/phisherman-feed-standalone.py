@@ -2,6 +2,9 @@
 """
 Phisherman Feeds Standalone - Recolector independiente de threat intelligence
 Versión corregida con URLs actualizadas y mejor manejo de errores
+
+DEPRECATED: This standalone script is deprecated. Use phisherman-feeds microservice instead.
+See: phisherman-feeds/README.md for migration instructions.
 """
 
 import argparse
@@ -11,14 +14,24 @@ import hashlib
 import io
 import json
 import logging
+import os
 import sys
 import uuid
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import aiosqlite
 import httpx
+
+# Deprecation warning
+warnings.warn(
+    "phisherman-feed-standalone.py is deprecated. "
+    "Use phisherman-feeds microservice instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 # Configuración de logging
 logging.basicConfig(
@@ -37,27 +50,26 @@ class Config:
 
     def __init__(self, config_file: str | None = None):
         self.database_path = "feeds_data.db"
-        self.user_agent = "phishtank/vreyes"  # ✅ User-Agent correcto para PhishTank
+        self.user_agent = "phishtank/RND1"  # User-Agent correcto para PhishTank
         self.http_timeout = 120
 
         # URLs actualizadas - PhishTank CSV funciona, JSON tiene problemas
         self.feed_urls = {
-            "phishtank": "https://data.phishtank.com/data/online-valid.csv",  # ✅ CSV funciona correctamente
-            "openphish": "https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt",  # Nueva URL
+            "phishtank": "https://data.phishtank.com/data/online-valid.csv",
+            "openphish": "https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt",
             "urlhaus": "https://urlhaus.abuse.ch/downloads/json/",
+            "netapi": "https://netapi.com/api2/?method=compromised&dataset_type=url-all"
         }
 
-        # PhishTank API key para acceso sin rate limiting
-        self.phishtank_api_key = ""
+        # API keys from environment variables (NEVER hardcode secrets)
+        self.phishtank_api_key = os.getenv("PHISHTANK_API_KEY", "")
+        self.virustotal_api_key = os.getenv("VIRUSTOTAL_API_KEY", "")
+        self.google_safebrowsing_key = os.getenv("GOOGLE_SAFEBROWSING_KEY", "")
 
         # Intervalos de refresh en minutos
         self.phishtank_interval = 15
         self.openphish_interval = 15
         self.urlhaus_interval = 30
-
-        # APIs opcionales
-        self.virustotal_api_key = ""
-        self.google_safebrowsing_key = ""
 
         if config_file and Path(config_file).exists():
             self._load_config(config_file)
@@ -531,11 +543,11 @@ class FeedProcessor:
                 json_filename = zf.namelist()[0]  # Usualmente "urlhaus_full.json"
                 logger.info(f"Extracting {json_filename} from ZIP...")
                 with zf.open(json_filename) as f:
-                    json_content = f.read().decode('utf-8')
+                    json_content = f.read().decode("utf-8")
 
             # ✅ El JSON es un objeto con IDs como keys y arrays de URLs como values
             data = json.loads(json_content)
-            
+
             entries_processed = 0
             duplicates = 0
             no_url = 0
@@ -546,7 +558,7 @@ class FeedProcessor:
                 # Cada value puede ser un array de objetos o un objeto único
                 if not isinstance(url_entries, list):
                     url_entries = [url_entries]
-                
+
                 for entry in url_entries:
                     if not isinstance(entry, dict):
                         invalid_entries += 1

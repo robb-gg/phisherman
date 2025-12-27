@@ -1,25 +1,14 @@
 """Manager para coordinar todos los feeds disponibles."""
 
-import asyncio
 import logging
-import os
-
-# Importar desde el proyecto principal
-import sys
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import delete, select
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
-
 from phisherman.datastore.database import AsyncSessionLocal
 from phisherman.datastore.models import FeedEntry, Indicator
-from phisherman.tasks.feeds import (
-    _refresh_openphish,
-    _refresh_phishtank,
-    _refresh_urlhaus,
-)
+from phisherman.feeds import FeedProcessor, FeedResult
 
 from ..config import feeds_settings
 
@@ -30,81 +19,51 @@ class FeedManager:
     """Manager central para todos los feeds."""
 
     def __init__(self):
-        self.feeds = {
-            "phishtank": {
-                "refresh_func": _refresh_phishtank,
-                "interval": feeds_settings.phishtank_refresh_interval,
-            },
-            "openphish": {
-                "refresh_func": _refresh_openphish,
-                "interval": feeds_settings.openphish_refresh_interval,
-            },
-            "urlhaus": {
-                "refresh_func": _refresh_urlhaus,
-                "interval": feeds_settings.urlhaus_refresh_interval,
-            },
+        """Initialize the feed manager with the shared processor."""
+        self.processor = FeedProcessor()
+        self.feed_intervals = {
+            "phishtank": feeds_settings.phishtank_refresh_interval,
+            "openphish": feeds_settings.openphish_refresh_interval,
+            "urlhaus": feeds_settings.urlhaus_refresh_interval,
         }
 
     async def refresh_single_feed(self, feed_name: str) -> dict[str, Any]:
         """Refresh un feed específico."""
-        if feed_name not in self.feeds:
+        if feed_name not in self.processor.get_available_feeds():
             raise ValueError(f"Unknown feed: {feed_name}")
 
-        feed_config = self.feeds[feed_name]
-        refresh_func = feed_config["refresh_func"]
+        logger.info(f"Starting refresh for feed: {feed_name}")
 
-        try:
-            logger.info(f"Starting refresh for feed: {feed_name}")
-            result = await refresh_func()
-            logger.info(f"Feed {feed_name} refresh completed: {result}")
-            return result
-
-        except Exception as e:
-            logger.error(f"Feed {feed_name} refresh failed: {e}")
-            return {"status": "error", "feed_name": feed_name, "error": str(e)}
+        async with AsyncSessionLocal() as session:
+            result = await self.processor.refresh_feed(feed_name, session)
+            logger.info(f"Feed {feed_name} refresh completed: {result.to_dict()}")
+            return result.to_dict()
 
     async def refresh_all_feeds(self) -> dict[str, Any]:
         """Refresh todos los feeds en paralelo."""
         logger.info("Starting refresh for all feeds")
 
-        tasks = []
-        for feed_name in self.feeds:
-            task = asyncio.create_task(
-                self.refresh_single_feed(feed_name), name=f"refresh_{feed_name}"
-            )
-            tasks.append(task)
+        async with AsyncSessionLocal() as session:
+            results = await self.processor.refresh_all_feeds(session)
 
-        # Ejecutar todos en paralelo
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Procesar resultados
-        feed_results = {}
-        for i, feed_name in enumerate(self.feeds):
-            result = results[i]
-            if isinstance(result, Exception):
-                feed_results[feed_name] = {"status": "error", "error": str(result)}
-            else:
-                feed_results[feed_name] = result
-
-        success_count = sum(
-            1 for r in feed_results.values() if r.get("status") == "success"
-        )
+        feed_results = {name: result.to_dict() for name, result in results.items()}
+        success_count = sum(1 for r in results.values() if r.status == "success")
 
         logger.info(
-            f"All feeds refresh completed: {success_count}/{len(self.feeds)} successful"
+            f"All feeds refresh completed: {success_count}/{len(results)} successful"
         )
 
         return {
             "status": "completed",
             "feeds": feed_results,
             "successful_feeds": success_count,
-            "total_feeds": len(self.feeds),
+            "total_feeds": len(results),
             "completed_at": datetime.now(UTC).isoformat(),
         }
 
     async def get_feed_status(self, feed_name: str) -> dict[str, Any]:
         """Obtener estado de un feed específico."""
-        if feed_name not in self.feeds:
+        if feed_name not in self.processor.get_available_feeds():
             raise ValueError(f"Unknown feed: {feed_name}")
 
         async with AsyncSessionLocal() as db:
@@ -124,14 +83,12 @@ class FeedManager:
             result = await db.execute(stmt)
             total_indicators = len(result.scalars().all())
 
-            feed_config = self.feeds[feed_name]
+            interval = self.feed_intervals.get(feed_name, 15)
 
             # Calcular próximo refresh
             next_refresh = None
-            if last_entry:
-                next_refresh = last_entry.feed_timestamp + timedelta(
-                    minutes=feed_config["interval"]
-                )
+            if last_entry and last_entry.feed_timestamp:
+                next_refresh = last_entry.feed_timestamp + timedelta(minutes=interval)
 
             return {
                 "name": feed_name,
@@ -139,7 +96,7 @@ class FeedManager:
                 "last_refresh": last_entry.feed_timestamp if last_entry else None,
                 "next_refresh": next_refresh,
                 "total_entries": total_indicators,
-                "refresh_interval_minutes": feed_config["interval"],
+                "refresh_interval_minutes": interval,
                 "status": "active" if last_entry else "never_refreshed",
                 "last_error": None,
             }
@@ -149,7 +106,7 @@ class FeedManager:
         feeds_status = []
         total_entries = 0
 
-        for feed_name in self.feeds:
+        for feed_name in self.processor.get_available_feeds():
             try:
                 status = await self.get_feed_status(feed_name)
                 feeds_status.append(status)
@@ -163,7 +120,9 @@ class FeedManager:
                         "status": "error",
                         "last_error": str(e),
                         "total_entries": 0,
-                        "refresh_interval_minutes": self.feeds[feed_name]["interval"],
+                        "refresh_interval_minutes": self.feed_intervals.get(
+                            feed_name, 15
+                        ),
                         "last_refresh": None,
                         "next_refresh": None,
                     }
@@ -182,7 +141,8 @@ class FeedManager:
         cutoff_date = datetime.now(UTC) - timedelta(days=days_old)
 
         logger.info(
-            f"Starting cleanup of entries older than {days_old} days (before {cutoff_date})"
+            f"Starting cleanup of entries older than {days_old} days "
+            f"(before {cutoff_date})"
         )
 
         async with AsyncSessionLocal() as db:
@@ -204,7 +164,8 @@ class FeedManager:
                 await db.commit()
 
                 logger.info(
-                    f"Cleanup completed: {indicators_deleted} indicators, {feeds_deleted} feed entries deleted"
+                    f"Cleanup completed: {indicators_deleted} indicators, "
+                    f"{feeds_deleted} feed entries deleted"
                 )
 
                 return {
