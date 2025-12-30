@@ -228,4 +228,3 @@ class CloakingDetector:
         result.evidence["cloaking_detected"] = bool(content_differences)
 
         return result
-

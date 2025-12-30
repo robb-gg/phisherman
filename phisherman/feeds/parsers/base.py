@@ -3,7 +3,6 @@
 import hashlib
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
 
 import httpx
 
@@ -111,4 +110,3 @@ class BaseFeedParser(ABC):
     def get_headers(self) -> dict[str, str]:
         """Get HTTP headers for the request."""
         return {"User-Agent": self.user_agent}
-

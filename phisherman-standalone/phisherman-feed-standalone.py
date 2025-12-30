@@ -58,7 +58,7 @@ class Config:
             "phishtank": "https://data.phishtank.com/data/online-valid.csv",
             "openphish": "https://raw.githubusercontent.com/openphish/public_feed/refs/heads/main/feed.txt",
             "urlhaus": "https://urlhaus.abuse.ch/downloads/json/",
-            "netapi": "https://netapi.com/api2/?method=compromised&dataset_type=url-all"
+            "netapi": "https://netapi.com/api2/?method=compromised&dataset_type=url-all",
         }
 
         # API keys from environment variables (NEVER hardcode secrets)

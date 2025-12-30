@@ -7,12 +7,9 @@ import pytest
 
 # Import all models to ensure SQLAlchemy registers them
 from phisherman.datastore import (
-    CampaignStatusEnum,
     IndustryEnum,
-    PhishingCampaign,
     UrlScan,  # noqa: F401 - needed for relationship registration
     VictimCompany,
-    VictimUrl,
 )
 from phisherman.services.victim_classifier import VictimClassifier
 
@@ -187,7 +184,9 @@ class TestVictimClassifier:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_classify_by_domain_patterns(self, classifier, mock_session, sample_company):
+    async def test_classify_by_domain_patterns(
+        self, classifier, mock_session, sample_company
+    ):
         """Test domain pattern classification."""
         # Mock database to return sample company
         mock_result = MagicMock()
@@ -204,9 +203,7 @@ class TestVictimClassifier:
         assert impersonation_type == "typosquatting"
 
     @pytest.mark.asyncio
-    async def test_classify_by_domain_patterns_no_match(
-        self, classifier, mock_session
-    ):
+    async def test_classify_by_domain_patterns_no_match(self, classifier, mock_session):
         """Test domain pattern classification with no match."""
         # Mock database to return empty result
         mock_result = MagicMock()
@@ -255,7 +252,6 @@ class TestVictimClassifier:
         self, classifier, mock_session, sample_company
     ):
         """Test brand pattern classification."""
-        from phisherman.datastore.victim_models import BrandPattern
 
         # Create mock pattern
         mock_pattern = MagicMock()
@@ -379,15 +375,21 @@ class TestVictimClassifier:
         assert mock_session.add.called
 
     @pytest.mark.asyncio
-    async def test_update_victim_statistics(self, classifier, mock_session, sample_company):
+    async def test_update_victim_statistics(
+        self, classifier, mock_session, sample_company
+    ):
         """Test victim statistics update."""
         # Mock URL count
         mock_urls_result = MagicMock()
-        mock_urls_result.scalars.return_value.all.return_value = [MagicMock()] * 10  # 10 URLs
+        mock_urls_result.scalars.return_value.all.return_value = [
+            MagicMock()
+        ] * 10  # 10 URLs
 
         # Mock campaign count
         mock_campaigns_result = MagicMock()
-        mock_campaigns_result.scalars.return_value.all.return_value = [MagicMock()] * 2  # 2 campaigns
+        mock_campaigns_result.scalars.return_value.all.return_value = [
+            MagicMock()
+        ] * 2  # 2 campaigns
 
         call_count = 0
 
@@ -406,4 +408,3 @@ class TestVictimClassifier:
         assert sample_company.active_campaigns == 2
         assert sample_company.risk_score > 0
         assert mock_session.commit.called
-

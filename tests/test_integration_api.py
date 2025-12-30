@@ -5,15 +5,12 @@ Run with: pytest tests/test_integration_api.py -m integration
 """
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
 from phisherman.datastore.models import UrlScan
 from phisherman.datastore.victim_models import (
@@ -30,7 +27,9 @@ def app():
     """Create FastAPI app for testing."""
     # Set test environment
     os.environ["ENVIRONMENT"] = "test"
-    os.environ["DATABASE_URL"] = "postgresql+asyncpg://phisherman:password@localhost:5432/phisherman_test"
+    os.environ[
+        "DATABASE_URL"
+    ] = "postgresql+asyncpg://phisherman:password@localhost:5432/phisherman_test"
     os.environ["REDIS_URL"] = "redis://localhost:6379/1"
 
     from phisherman.api.main import create_app
@@ -183,8 +182,8 @@ class TestVictimsAPI:
             total_urls=3,
             active_urls=2,
             domains_count=1,
-            first_observed=datetime.now(timezone.utc),
-            last_observed=datetime.now(timezone.utc),
+            first_observed=datetime.now(UTC),
+            last_observed=datetime.now(UTC),
         )
         db_session.add(campaign)
 
@@ -337,7 +336,10 @@ class TestCacheIntegration:
 
         # Second request should be faster (cached)
         # Note: exact caching behavior depends on configuration
-        assert data2.get("cached", False) or data2["processing_time_ms"] <= data1["processing_time_ms"] + 100
+        assert (
+            data2.get("cached", False)
+            or data2["processing_time_ms"] <= data1["processing_time_ms"] + 100
+        )
 
 
 @pytest.mark.integration
@@ -369,4 +371,3 @@ class TestErrorHandling:
         response = await client.delete("/api/v1/health")
 
         assert response.status_code == 405
-

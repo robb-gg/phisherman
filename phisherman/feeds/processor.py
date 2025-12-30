@@ -5,7 +5,6 @@ import hashlib
 import logging
 import os
 from datetime import UTC, datetime
-from typing import Any
 
 import httpx
 from sqlalchemy import select
@@ -243,4 +242,3 @@ class FeedProcessor:
     def get_available_feeds(self) -> list[str]:
         """Get list of available feed names."""
         return list(self.parsers.keys())
-

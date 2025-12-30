@@ -12,4 +12,3 @@ This module provides specialized analyzers for different aspects of web content:
 from phisherman.analyzers.web_content.analyzer import WebContentAnalyzer
 
 __all__ = ["WebContentAnalyzer"]
-

@@ -4,7 +4,7 @@ These tests require PostgreSQL to be running.
 Run with: pytest tests/test_integration_db.py -m integration
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -13,7 +13,6 @@ from sqlalchemy import select
 
 from phisherman.datastore.models import Indicator, UrlScan, Verdict
 from phisherman.datastore.victim_models import (
-    BrandPattern,
     CampaignStatusEnum,
     IndustryEnum,
     PhishingCampaign,
@@ -195,8 +194,8 @@ class TestPhishingCampaignCRUD:
             total_urls=5,
             active_urls=3,
             domains_count=2,
-            first_observed=datetime.now(timezone.utc),
-            last_observed=datetime.now(timezone.utc),
+            first_observed=datetime.now(UTC),
+            last_observed=datetime.now(UTC),
         )
         db_session.add(campaign)
         await db_session.commit()
@@ -222,16 +221,15 @@ class TestPhishingCampaignCRUD:
             campaign_hash="rel_hash_123",
             victim_company_id=victim_company.id,
             attack_vector="web",
-            first_observed=datetime.now(timezone.utc),
-            last_observed=datetime.now(timezone.utc),
+            first_observed=datetime.now(UTC),
+            last_observed=datetime.now(UTC),
         )
         db_session.add(campaign)
         await db_session.commit()
 
         # Load campaign with relationship
         result = await db_session.execute(
-            select(PhishingCampaign)
-            .where(PhishingCampaign.id == campaign.id)
+            select(PhishingCampaign).where(PhishingCampaign.id == campaign.id)
         )
         loaded_campaign = result.scalar_one()
 
@@ -282,8 +280,8 @@ class TestVictimUrlRelationships:
             campaign_hash="test_hash_456",
             victim_company_id=company.id,
             attack_vector="web",
-            first_observed=datetime.now(timezone.utc),
-            last_observed=datetime.now(timezone.utc),
+            first_observed=datetime.now(UTC),
+            last_observed=datetime.now(UTC),
         )
         db_session.add(campaign)
 
@@ -381,8 +379,8 @@ class TestIndicatorCRUD:
             source="phishtank",
             source_url="https://phishtank.org/123",
             tags=["phishing", "credential_theft"],
-            first_seen=datetime.now(timezone.utc),
-            last_seen=datetime.now(timezone.utc),
+            first_seen=datetime.now(UTC),
+            last_seen=datetime.now(UTC),
             is_active=True,
         )
         db_session.add(indicator)
@@ -411,8 +409,8 @@ class TestIndicatorCRUD:
                 severity="medium",
                 confidence=0.8,
                 source="urlhaus",
-                first_seen=datetime.now(timezone.utc),
-                last_seen=datetime.now(timezone.utc),
+                first_seen=datetime.now(UTC),
+                last_seen=datetime.now(UTC),
                 is_active=is_active,
             )
             db_session.add(indicator)
@@ -447,7 +445,7 @@ class TestVerdictCache:
             labels=["safe"],
             analyzer_version="1.0.0",
             model_version="1.0.0",
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+            expires_at=datetime.now(UTC) + timedelta(hours=24),
             hit_count=0,
         )
         db_session.add(verdict)
@@ -471,4 +469,3 @@ class TestVerdictCache:
         )
         updated_verdict = result.scalar_one()
         assert updated_verdict.hit_count == 1
-

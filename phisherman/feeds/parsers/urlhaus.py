@@ -99,4 +99,3 @@ class URLhausParser(BaseFeedParser):
                 "tags": threat_tags,
             },
         )
-

@@ -57,4 +57,3 @@ class OpenPhishParser(BaseFeedParser):
             )
 
         return entries
-

@@ -76,4 +76,3 @@ class HeaderAnalyzer:
                 result.labels.append("suspicious_server_header")
 
         return result
-

@@ -51,7 +51,9 @@ class RedirectDetector:
     # URL shortener patterns
     SHORTENER_PATTERNS = ["bit.ly", "t.co", "tinyurl", "goo.gl", "ow.ly"]
 
-    def analyze(self, content: str, redirects: list[str] | None = None) -> RedirectDetectionResult:
+    def analyze(
+        self, content: str, redirects: list[str] | None = None
+    ) -> RedirectDetectionResult:
         """
         Analyze content for redirect patterns.
 
@@ -139,7 +141,7 @@ class RedirectDetector:
 
             # Try to extract destination URLs
             url_matches = re.findall(
-                r'(?:location\.href|location\.replace|window\.location)'
+                r"(?:location\.href|location\.replace|window\.location)"
                 r'\s*=\s*["\']([^"\']+)["\']',
                 content,
                 re.IGNORECASE,
@@ -178,4 +180,3 @@ class RedirectDetector:
 
         # Short page with redirect = likely a redirector
         return has_redirect and content_length < 2000
-

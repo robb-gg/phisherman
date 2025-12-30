@@ -4,13 +4,13 @@ import asyncio
 import logging
 import socket
 import ssl
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-from cryptography.x509.oid import ExtensionOID, NameOID
+from cryptography.x509.oid import ExtensionOID
 
 from phisherman.analyzers.protocol import AnalyzerResult, BaseAnalyzer
 from phisherman.config import settings
@@ -119,9 +119,7 @@ class TlsProbeAnalyzer(BaseAnalyzer):
             evidence["certificate"] = cert_data
 
             # Analyze certificate
-            cert_risk, cert_labels = self._analyze_certificate_data(
-                cert_data, hostname
-            )
+            cert_risk, cert_labels = self._analyze_certificate_data(cert_data, hostname)
             risk_score += cert_risk
             labels.extend(cert_labels)
 
@@ -185,9 +183,7 @@ class TlsProbeAnalyzer(BaseAnalyzer):
             execution_time_ms=0.0,
         )
 
-    async def _get_certificate(
-        self, hostname: str, port: int = 443
-    ) -> dict[str, Any]:
+    async def _get_certificate(self, hostname: str, port: int = 443) -> dict[str, Any]:
         """Get TLS certificate for hostname and extract relevant data."""
         loop = asyncio.get_event_loop()
 
@@ -220,20 +216,22 @@ class TlsProbeAnalyzer(BaseAnalyzer):
         data: dict[str, Any] = {}
 
         # Validity dates (support both old and new cryptography API)
-        not_before = getattr(cert, "not_valid_before_utc", None) or cert.not_valid_before
+        not_before = (
+            getattr(cert, "not_valid_before_utc", None) or cert.not_valid_before
+        )
         not_after = getattr(cert, "not_valid_after_utc", None) or cert.not_valid_after
 
         # Ensure timezone awareness
         if not_before.tzinfo is None:
-            not_before = not_before.replace(tzinfo=timezone.utc)
+            not_before = not_before.replace(tzinfo=UTC)
         if not_after.tzinfo is None:
-            not_after = not_after.replace(tzinfo=timezone.utc)
+            not_after = not_after.replace(tzinfo=UTC)
 
         data["not_before"] = not_before.isoformat()
         data["not_after"] = not_after.isoformat()
 
         # Calculate certificate age
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cert_age_days = (now - not_before).days
         days_until_expiry = (not_after - now).days
         data["age_days"] = cert_age_days
@@ -287,10 +285,12 @@ class TlsProbeAnalyzer(BaseAnalyzer):
         risk = 0.0
         labels: list[str] = []
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Check validity period
-        not_after = datetime.fromisoformat(cert_data["not_after"].replace("Z", "+00:00"))
+        not_after = datetime.fromisoformat(
+            cert_data["not_after"].replace("Z", "+00:00")
+        )
         not_before = datetime.fromisoformat(
             cert_data["not_before"].replace("Z", "+00:00")
         )

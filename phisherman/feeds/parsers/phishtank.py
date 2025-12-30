@@ -122,4 +122,3 @@ class PhishTankParser(BaseFeedParser):
             },
             feed_timestamp=feed_timestamp,
         )
-

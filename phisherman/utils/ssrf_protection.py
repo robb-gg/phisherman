@@ -120,4 +120,3 @@ def sanitize_redirect_url(redirect_url: str, original_url: str) -> tuple[bool, s
         return False, "JavaScript URLs not allowed"
 
     return True, "Redirect URL is safe"
-

@@ -1,6 +1,7 @@
 """Tests for TLS Probe analyzer."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -154,9 +155,9 @@ class TestTlsProbeAnalyzer:
     @pytest.mark.asyncio
     async def test_analyze_newly_issued_certificate(self, analyzer):
         """Test analysis with newly issued certificate."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         recent = now - timedelta(days=3)
         future = now + timedelta(days=365)
 
@@ -226,7 +227,10 @@ class TestTlsProbeAnalyzer:
             "days_until_expiry": 365,
             "subject": {"commonName": "secure-bank.com"},
             "common_name": "secure-bank.com",
-            "issuer": {"commonName": "DigiCert SHA2", "organizationName": "DigiCert Inc"},
+            "issuer": {
+                "commonName": "DigiCert SHA2",
+                "organizationName": "DigiCert Inc",
+            },
             "issuer_cn": "DigiCert SHA2",
             "issuer_org": "DigiCert Inc",
             "is_self_signed": False,
@@ -289,14 +293,19 @@ class TestTlsProbeAnalyzer:
 
     def test_check_hostname_match_with_sans(self, analyzer):
         """Test hostname matching with SANs."""
-        assert analyzer._check_hostname_match(
-            "www.example.com",
-            "example.com",
-            ["example.com", "www.example.com"],
-        ) is True
-        assert analyzer._check_hostname_match(
-            "api.example.com",
-            "example.com",
-            ["example.com", "www.example.com"],
-        ) is False
-
+        assert (
+            analyzer._check_hostname_match(
+                "www.example.com",
+                "example.com",
+                ["example.com", "www.example.com"],
+            )
+            is True
+        )
+        assert (
+            analyzer._check_hostname_match(
+                "api.example.com",
+                "example.com",
+                ["example.com", "www.example.com"],
+            )
+            is False
+        )

@@ -95,4 +95,3 @@ class SSLAnalyzer:
             result.evidence = {"error": f"SSL analysis failed: {str(e)}"}
 
         return result
-

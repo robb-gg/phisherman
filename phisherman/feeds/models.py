@@ -28,7 +28,9 @@ class ParsedEntry:
             "severity": self.severity,
             "tags": self.tags,
             "metadata": self.metadata,
-            "feed_timestamp": self.feed_timestamp.isoformat() if self.feed_timestamp else None,
+            "feed_timestamp": self.feed_timestamp.isoformat()
+            if self.feed_timestamp
+            else None,
         }
 
 
@@ -53,6 +55,7 @@ class FeedResult:
             "entries_skipped": self.entries_skipped,
             "duplicates": self.duplicates,
             "error": self.error,
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
         }
-

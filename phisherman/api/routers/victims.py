@@ -381,9 +381,7 @@ async def get_victim_urls(
                 if victim_url.victim_company
                 else "[Company not found]"
             ),
-            campaign_name=(
-                victim_url.campaign.name if victim_url.campaign else None
-            ),
+            campaign_name=(victim_url.campaign.name if victim_url.campaign else None),
             impersonation_type=victim_url.impersonation_type,
             similarity_score=victim_url.similarity_score,
             deception_techniques=victim_url.deception_techniques,

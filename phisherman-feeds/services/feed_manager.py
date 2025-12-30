@@ -8,7 +8,7 @@ from sqlalchemy import delete, select
 
 from phisherman.datastore.database import AsyncSessionLocal
 from phisherman.datastore.models import FeedEntry, Indicator
-from phisherman.feeds import FeedProcessor, FeedResult
+from phisherman.feeds import FeedProcessor
 
 from ..config import feeds_settings
 

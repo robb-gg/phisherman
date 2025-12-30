@@ -103,9 +103,7 @@ class WebContentAnalyzer(BaseAnalyzer):
             # Run sub-analyzers
 
             # 1. Redirect analysis
-            redirect_result = self.redirect_detector.analyze(
-                response.text, redirects
-            )
+            redirect_result = self.redirect_detector.analyze(response.text, redirects)
             risk_score += redirect_result.risk_score
             labels.extend(redirect_result.labels)
             evidence["redirects"] = redirect_result.evidence
@@ -129,9 +127,9 @@ class WebContentAnalyzer(BaseAnalyzer):
                 )
                 risk_score += cloaking_content_result.risk_score
                 labels.extend(cloaking_content_result.labels)
-                evidence["cloaking"]["content_patterns"] = (
-                    cloaking_content_result.evidence
-                )
+                evidence["cloaking"][
+                    "content_patterns"
+                ] = cloaking_content_result.evidence
             else:
                 labels.append(f"http_status_{response.status_code}")
                 if response.status_code >= 400:
@@ -192,4 +190,3 @@ class WebContentAnalyzer(BaseAnalyzer):
     async def cleanup(self):
         """Cleanup HTTP client."""
         await self.client.aclose()
-

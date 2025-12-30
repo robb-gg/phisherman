@@ -3,7 +3,7 @@
 import asyncio
 import os
 from collections.abc import AsyncGenerator, Generator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -14,7 +14,9 @@ from sqlalchemy.orm import sessionmaker
 
 # Set test environment before importing app modules
 os.environ.setdefault("ENVIRONMENT", "test")
-os.environ.setdefault("DATABASE_URL", "postgresql://phisherman:password@localhost:5432/phisherman_test")
+os.environ.setdefault(
+    "DATABASE_URL", "postgresql://phisherman:password@localhost:5432/phisherman_test"
+)
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
 
 
@@ -149,7 +151,6 @@ def sample_campaign_data(sample_victim_company_data):
         "total_urls": 1,
         "active_urls": 1,
         "domains_count": 1,
-        "first_observed": datetime.now(timezone.utc),
-        "last_observed": datetime.now(timezone.utc),
+        "first_observed": datetime.now(UTC),
+        "last_observed": datetime.now(UTC),
     }
-
