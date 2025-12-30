@@ -81,4 +81,3 @@ export function History({ entries, onSelect, onRemove, onClear }: HistoryProps) 
     </div>
   );
 }
-

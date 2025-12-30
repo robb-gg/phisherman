@@ -110,4 +110,3 @@ export function HistoryItem({ entry, onSelect, onRemove }: HistoryItemProps) {
     </div>
   );
 }
-
